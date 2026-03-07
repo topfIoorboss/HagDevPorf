@@ -1446,40 +1446,52 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
 
       <!-- CLOUD SYNC -->
       <div class="admin-section" id="admin-cloud">
-        <div class="admin-section-header">☁️ CLOUD SYNC</div>
-        <div class="admin-section-sub">Connect JSONBin.io so your changes appear on every device & visitor</div>
+        <div class="admin-section-header">☁️ GITHUB SYNC</div>
+        <div class="admin-section-sub">Your data lives in your GitHub repo — no ad blockers, no third parties, works everywhere</div>
 
         <div style="background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);padding:1.25rem;margin-bottom:1.5rem;">
-          <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.75rem;">HOW TO SET UP (2 minutes, free)</div>
-          <ol style="font-size:0.85rem;color:var(--text2);line-height:2;padding-left:1.25rem;">
-            <li>Go to <strong style="color:var(--text);">jsonbin.io</strong> and create a free account</li>
-            <li>Click <strong style="color:var(--text);">+ Create Bin</strong> — paste <code style="background:var(--bg3);padding:0.1rem 0.4rem;font-family:var(--font-mono);font-size:0.8rem;">{}</code> as the content and save</li>
-            <li>Copy the <strong style="color:var(--text);">Bin ID</strong> from the URL (looks like <code style="background:var(--bg3);padding:0.1rem 0.4rem;font-family:var(--font-mono);font-size:0.8rem;">64abc123...</code>)</li>
-            <li>Go to <strong style="color:var(--text);">API Keys</strong> in your account, create a key, copy it</li>
-            <li>Paste both below and click <strong style="color:var(--text);">CONNECT & PUSH DATA</strong></li>
+          <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.75rem;">HOW TO SET UP (3 minutes, free)</div>
+          <ol style="font-size:0.85rem;color:var(--text2);line-height:2.2;padding-left:1.25rem;">
+            <li>Go to <strong style="color:var(--text);">github.com → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)</strong></li>
+            <li>Click <strong style="color:var(--text);">Generate new token (classic)</strong></li>
+            <li>Give it a name, set expiry, and tick only the <strong style="color:var(--text);">repo</strong> checkbox</li>
+            <li>Copy the token (starts with <code style="background:var(--bg3);padding:0.1rem 0.4rem;font-family:var(--font-mono);font-size:0.8rem;">ghp_...</code>)</li>
+            <li>Fill in the fields below and click <strong style="color:var(--text);">CONNECT & PUSH DATA</strong></li>
           </ol>
         </div>
 
         <div class="admin-form">
-          <div class="admin-form-group">
-            <label class="admin-form-label">JSONBin Bin ID</label>
-            <input class="admin-form-input" id="cloud-bin-id" placeholder="e.g. 64abc123def456..." maxlength="100" style="font-family:var(--font-mono);">
+          <div class="admin-form-grid">
+            <div class="admin-form-group">
+              <label class="admin-form-label">GitHub Username</label>
+              <input class="admin-form-input" id="cloud-gh-owner" placeholder="e.g. ArthurGB12" maxlength="100">
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Repository Name</label>
+              <input class="admin-form-input" id="cloud-gh-repo" placeholder="e.g. my-portfolio" maxlength="100">
+            </div>
           </div>
-          <div class="admin-form-group">
-            <label class="admin-form-label">JSONBin API Key (Master Key)</label>
-            <input class="admin-form-input" id="cloud-api-key" type="password" placeholder="$2a$10$..." maxlength="200" style="font-family:var(--font-mono);">
-            <div style="font-size:0.75rem;color:var(--text3);margin-top:0.3rem;">Stored only on your device — never sent anywhere except JSONBin.</div>
+          <div class="admin-form-grid">
+            <div class="admin-form-group">
+              <label class="admin-form-label">Branch</label>
+              <input class="admin-form-input" id="cloud-gh-branch" placeholder="main" maxlength="50" value="main">
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Personal Access Token</label>
+              <input class="admin-form-input" id="cloud-gh-token" type="password" placeholder="ghp_..." maxlength="200">
+              <div style="font-size:0.72rem;color:var(--text3);margin-top:0.3rem;">Stored only on your device. Never sent anywhere except GitHub.</div>
+            </div>
           </div>
 
           <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
             <button class="admin-btn primary" onclick="connectCloud()">☁ CONNECT & PUSH DATA</button>
             <button class="admin-btn" onclick="testCloudLoad()">↓ PULL FROM CLOUD</button>
-            <button class="admin-btn success" onclick="downloadUpdatedHTML()">⬇ DOWNLOAD UPDATED HTML</button>
             <button class="admin-btn danger" onclick="disconnectCloud()">DISCONNECT</button>
           </div>
 
-          <div style="margin-top:0.75rem;padding:0.75rem 1rem;background:var(--bg3);border:1px solid var(--border);font-size:0.8rem;color:var(--text3);line-height:1.6;">
-            <strong style="color:var(--text2);">After connecting:</strong> Click <strong style="color:var(--text);">⬇ DOWNLOAD UPDATED HTML</strong> to get a new version of the file with your Bin ID baked in. Upload that to GitHub Pages — then every visitor can load your data automatically without needing a key.
+          <div style="margin-top:0.75rem;padding:0.75rem 1rem;background:var(--bg3);border:1px solid var(--border);font-size:0.8rem;color:var(--text3);line-height:1.7;">
+            After connecting, also add this to your <strong style="color:var(--text2);">index.html</strong> inside the <code style="font-family:var(--font-mono);font-size:0.75rem;">&lt;span id="cloud-bin-meta"&gt;</code> tag so visitors auto-load data:<br>
+            <code id="cloud-meta-hint" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--accent);word-break:break-all;display:block;margin-top:0.4rem;"></code>
           </div>
 
           <div id="cloud-status-msg" style="display:none;margin-top:1rem;padding:0.75rem 1rem;font-family:var(--font-mono);font-size:0.75rem;letter-spacing:1px;border:1px solid;"></div>
@@ -1487,7 +1499,7 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
 
         <div class="admin-divider"></div>
         <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text3);letter-spacing:2px;margin-bottom:0.75rem;">CURRENT STATUS</div>
-        <div id="cloud-current-status" style="font-size:0.85rem;color:var(--text2);"></div>
+        <div id="cloud-current-status" style="font-size:0.85rem;color:var(--text2);line-height:1.8;"></div>
       </div>
 
     </div><!-- /admin-content -->
@@ -1672,8 +1684,9 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
   </div>
 </div>
 
-<!-- Cloud Bin ID — filled in when you connect and re-export -->
-<span id="cloud-bin-meta" data-bin="69ac84e043b1c97be9be977d" style="display:none;"></span><script>
+<!-- Cloud config — owner/repo/branch baked in at setup time so all visitors can read data -->
+<span id="cloud-bin-meta" data-owner="" data-repo="" data-branch="main" style="display:none;"></span>
+<script>
 'use strict';
 
 // ============================================================
@@ -1772,37 +1785,30 @@ const DEFAULT_DATA = {
 // ============================================================
 let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
-// Cloud config — API key stored only in localStorage (never exposed)
-// Bin ID is stored in localStorage AND embedded in the page meta so visitors can read
+// ============================================================
+// CLOUD CONFIG — GitHub-based sync
+// Reads from a public data.json file in your GitHub repo.
+// Writes via GitHub API (requires token, stored locally only).
+// Visitors always read the raw file — no API key needed, never blocked.
+// ============================================================
+
 function getCloudConfig() {
   try {
-    // Check localStorage first
     const c = localStorage.getItem('portfolio_cloud_cfg');
     const local = c ? JSON.parse(c) : {};
-    // Also check page-embedded bin id (set at connect time, visible to all visitors)
-    const metaEl = document.getElementById('cloud-bin-meta');
-    const embeddedBinId = metaEl ? metaEl.getAttribute('data-bin') : '';
+    // Also check values baked into the HTML at deploy time
+    const meta = document.getElementById('cloud-bin-meta');
     return {
-      binId: local.binId || embeddedBinId || '',
-      apiKey: local.apiKey || ''
+      owner:  local.owner  || (meta && meta.getAttribute('data-owner'))  || '',
+      repo:   local.repo   || (meta && meta.getAttribute('data-repo'))   || '',
+      branch: local.branch || (meta && meta.getAttribute('data-branch')) || 'main',
+      token:  local.token  || '' // token NEVER baked into HTML
     };
-  } catch { return { binId: '', apiKey: '' }; }
+  } catch { return { owner:'', repo:'', branch:'main', token:'' }; }
 }
 
 function setCloudConfig(cfg) {
-  try {
-    localStorage.setItem('portfolio_cloud_cfg', JSON.stringify(cfg));
-    // Also embed bin ID in the page DOM so it persists in the HTML file
-    // (visitors who load the page will pick it up even without localStorage)
-    let metaEl = document.getElementById('cloud-bin-meta');
-    if (!metaEl) {
-      metaEl = document.createElement('div');
-      metaEl.id = 'cloud-bin-meta';
-      metaEl.style.display = 'none';
-      document.body.appendChild(metaEl);
-    }
-    metaEl.setAttribute('data-bin', cfg.binId || '');
-  } catch(e) {}
+  try { localStorage.setItem('portfolio_cloud_cfg', JSON.stringify(cfg)); } catch(e) {}
 }
 
 function deepMerge(base, incoming) {
@@ -1812,15 +1818,12 @@ function deepMerge(base, incoming) {
       if (typeof incoming[key] === 'object' && !Array.isArray(incoming[key]) && incoming[key] !== null
           && typeof result[key] === 'object' && !Array.isArray(result[key]) && result[key] !== null) {
         result[key] = deepMerge(result[key], incoming[key]);
-      } else {
-        result[key] = incoming[key];
-      }
+      } else { result[key] = incoming[key]; }
     }
   }
   return result;
 }
 
-// Apply a raw data object onto the live `data` variable
 function applyDataObject(raw) {
   data = deepMerge(DEFAULT_DATA, raw);
 }
@@ -1832,45 +1835,60 @@ function loadLocalCache() {
     if (s) applyDataObject(JSON.parse(s));
   } catch(e) { console.warn('Local cache load error', e); }
 }
-
 function writeLocalCache() {
   try { localStorage.setItem('portfolio_hagen_v2', JSON.stringify(data)); } catch(e) {}
 }
 
-// ---- JSONBIN CLOUD ----
+// ---- GITHUB CLOUD ----
+// READ: hits raw.githubusercontent.com — public, no auth, never blocked by ad blockers
 async function cloudLoad() {
   const cfg = getCloudConfig();
-  if (!cfg.binId) return false;
+  if (!cfg.owner || !cfg.repo) return false;
   try {
-    // Try with key first (owner), then without (public read)
-    const headers = {};
-    if (cfg.apiKey) headers['X-Master-Key'] = cfg.apiKey;
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}/latest`, { headers });
+    // Cache-bust so visitors always get fresh data
+    const url = `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/portfolio-data.json?t=${Date.now()}`;
+    const res = await fetch(url);
     if (!res.ok) return false;
     const json = await res.json();
-    if (json.record) {
-      applyDataObject(json.record);
-      writeLocalCache();
-      return true;
-    }
+    applyDataObject(json);
+    writeLocalCache();
+    return true;
   } catch(e) { console.warn('Cloud load failed:', e); }
   return false;
 }
 
+// WRITE: uses GitHub Contents API to update portfolio-data.json in the repo
 async function cloudSave() {
   const cfg = getCloudConfig();
-  if (!cfg.binId || !cfg.apiKey) return false;
+  if (!cfg.owner || !cfg.repo || !cfg.token) return false;
+  const apiUrl = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/portfolio-data.json`;
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}`, {
+    // First get the current file SHA (required by GitHub API to update a file)
+    let sha = null;
+    const getRes = await fetch(apiUrl, {
+      headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (getRes.ok) {
+      const getJson = await getRes.json();
+      sha = getJson.sha;
+    }
+    // Now write the new content
+    const body = {
+      message: 'Portfolio data update',
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2)))),
+      branch: cfg.branch
+    };
+    if (sha) body.sha = sha;
+    const putRes = await fetch(apiUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': cfg.apiKey,
-        'X-Bin-Private': 'false'   // make bin publicly readable so any visitor can load it
+        'Authorization': `token ${cfg.token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(body)
     });
-    return res.ok;
+    return putRes.ok || putRes.status === 201;
   } catch(e) { console.warn('Cloud save failed:', e); }
   return false;
 }
@@ -1879,16 +1897,13 @@ async function cloudSave() {
 async function saveAllData() {
   writeLocalCache();
   const cfg = getCloudConfig();
-  if (cfg.binId && cfg.apiKey) {
-    const ok = await cloudSave();
-    return ok;
+  if (cfg.owner && cfg.repo && cfg.token) {
+    return await cloudSave();
   }
   return false;
 }
 
 // ---- INIT LOAD ----
-// 1. Load local cache immediately (fast, instant render)
-// 2. Then try cloud in background — if newer data found, re-render
 async function initLoad() {
   loadLocalCache();
   applyAppearance();
@@ -1896,7 +1911,7 @@ async function initLoad() {
   renderHome();
 
   const cfg = getCloudConfig();
-  if (cfg.binId && cfg.apiKey) {
+  if (cfg.owner && cfg.repo) {
     showSyncBanner('loading');
     const ok = await cloudLoad();
     if (ok) {
@@ -2987,19 +3002,25 @@ document.getElementById('mechanic-modal').addEventListener('click', function(e) 
 // ============================================================
 function populateCloudPanel() {
   const cfg = getCloudConfig();
-  document.getElementById('cloud-bin-id').value = cfg.binId || '';
-  document.getElementById('cloud-api-key').value = cfg.apiKey || '';
+  document.getElementById('cloud-gh-owner').value = cfg.owner || '';
+  document.getElementById('cloud-gh-repo').value = cfg.repo || '';
+  document.getElementById('cloud-gh-branch').value = cfg.branch || 'main';
+  document.getElementById('cloud-gh-token').value = cfg.token || '';
   updateCloudStatusDisplay();
 }
 
 function updateCloudStatusDisplay() {
   const cfg = getCloudConfig();
   const el = document.getElementById('cloud-current-status');
+  const hint = document.getElementById('cloud-meta-hint');
   if (!el) return;
-  if (cfg.binId && cfg.apiKey) {
-    el.innerHTML = `<span style="color:var(--green);">● CONNECTED</span> — Bin ID: <code style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text2);">${cfg.binId.slice(0,12)}...</code><br><span style="font-size:0.8rem;color:var(--text3);">All saves push to cloud. All visitors load from cloud.</span>`;
+  if (cfg.owner && cfg.repo) {
+    el.innerHTML = `<span style="color:var(--green);">● CONNECTED</span> — <code style="font-family:var(--font-mono);font-size:0.8rem;">${cfg.owner}/${cfg.repo}</code> (${cfg.branch})<br>
+      <span style="font-size:0.8rem;color:var(--text3);">Reads: raw.githubusercontent.com (public, never blocked)<br>Writes: GitHub API (token required, your device only)</span>`;
+    if (hint) hint.textContent = `data-owner="${cfg.owner}" data-repo="${cfg.repo}" data-branch="${cfg.branch}"`;
   } else {
-    el.innerHTML = `<span style="color:var(--red);">● NOT CONNECTED</span> — Changes only save locally on your device.<br><span style="font-size:0.8rem;color:var(--text3);">Set up JSONBin above to sync across all devices.</span>`;
+    el.innerHTML = `<span style="color:var(--red);">● NOT CONNECTED</span> — Changes only save locally on your device.`;
+    if (hint) hint.textContent = '';
   }
 }
 
@@ -3014,64 +3035,48 @@ function setCloudMsg(msg, type) {
 }
 
 async function connectCloud() {
-  const binId = document.getElementById('cloud-bin-id').value.trim();
-  const apiKey = document.getElementById('cloud-api-key').value.trim();
-  if (!binId || !apiKey) { setCloudMsg('⚠ Please enter both Bin ID and API Key.', 'error'); return; }
-  setCloudMsg('⟳ Connecting and pushing your data...', 'info');
-  setCloudConfig({ binId, apiKey });
+  const owner  = document.getElementById('cloud-gh-owner').value.trim();
+  const repo   = document.getElementById('cloud-gh-repo').value.trim();
+  const branch = document.getElementById('cloud-gh-branch').value.trim() || 'main';
+  const token  = document.getElementById('cloud-gh-token').value.trim();
+  if (!owner || !repo || !token) { setCloudMsg('⚠ Please fill in username, repo name, and token.', 'error'); return; }
+  setCloudMsg('⟳ Connecting and pushing your data to GitHub...', 'info');
+  setCloudConfig({ owner, repo, branch, token });
   const ok = await cloudSave();
   if (ok) {
-    setCloudMsg('✓ Connected! Your data is now live on the cloud. All visitors will see your latest changes.', 'ok');
+    setCloudMsg('✓ Connected! portfolio-data.json created in your repo. Update your index.html with the snippet shown below, commit & push — then every visitor will load your data automatically.', 'ok');
     updateCloudStatusDisplay();
   } else {
-    setCloudMsg('⚠ Connection failed. Double-check your Bin ID and API Key and try again.', 'error');
-    setCloudConfig({ binId: '', apiKey: '' });
+    setCloudMsg('⚠ Failed. Check your username, repo name, branch, and that your token has "repo" scope.', 'error');
+    setCloudConfig({ owner: '', repo: '', branch: 'main', token: '' });
   }
 }
 
 async function testCloudLoad() {
-  const binId = document.getElementById('cloud-bin-id').value.trim();
-  const apiKey = document.getElementById('cloud-api-key').value.trim();
-  if (!binId || !apiKey) { setCloudMsg('⚠ Enter credentials first.', 'error'); return; }
-  setCloudConfig({ binId, apiKey });
-  setCloudMsg('⟳ Pulling latest data from cloud...', 'info');
+  const owner  = document.getElementById('cloud-gh-owner').value.trim();
+  const repo   = document.getElementById('cloud-gh-repo').value.trim();
+  const branch = document.getElementById('cloud-gh-branch').value.trim() || 'main';
+  const token  = document.getElementById('cloud-gh-token').value.trim();
+  if (!owner || !repo) { setCloudMsg('⚠ Enter username and repo name first.', 'error'); return; }
+  setCloudConfig({ owner, repo, branch, token });
+  setCloudMsg('⟳ Pulling latest data from GitHub...', 'info');
   const ok = await cloudLoad();
   if (ok) {
     applyAppearance(); applyNavSettings(); liveRefresh();
-    setCloudMsg('✓ Data pulled from cloud and applied!', 'ok');
+    setCloudMsg('✓ Data pulled from GitHub and applied!', 'ok');
     updateCloudStatusDisplay();
   } else {
-    setCloudMsg('⚠ Pull failed. Check your credentials.', 'error');
+    setCloudMsg('⚠ Pull failed. Make sure portfolio-data.json exists in your repo (run CONNECT & PUSH first).', 'error');
   }
-}
-
-function downloadUpdatedHTML() {
-  const cfg = getCloudConfig();
-  if (!cfg.binId) {
-    setCloudMsg('⚠ Connect to cloud first before downloading.', 'error');
-    return;
-  }
-  // Get the current page HTML and inject the bin ID into the meta span
-  let html = document.documentElement.outerHTML;
-  // Replace the data-bin="" with the actual bin ID
-  html = html.replace(
-    /(<span id="cloud-bin-meta" data-bin=")[^"]*(")/,
-    `$1${cfg.binId}$2`
-  );
-  const blob = new Blob([html], { type: 'text/html' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'index.html';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  setCloudMsg('✓ Downloaded! Upload this index.html to GitHub Pages to make it live for everyone.', 'ok');
 }
 
 function disconnectCloud() {
-  if (!confirm('Disconnect cloud sync? Changes will only save locally until you reconnect.')) return;
-  setCloudConfig({ binId: '', apiKey: '' });
-  document.getElementById('cloud-bin-id').value = '';
-  document.getElementById('cloud-api-key').value = '';
+  if (!confirm('Disconnect GitHub sync? Changes will only save locally until you reconnect.')) return;
+  setCloudConfig({ owner: '', repo: '', branch: 'main', token: '' });
+  document.getElementById('cloud-gh-owner').value = '';
+  document.getElementById('cloud-gh-repo').value = '';
+  document.getElementById('cloud-gh-branch').value = 'main';
+  document.getElementById('cloud-gh-token').value = '';
   setCloudMsg('Disconnected. Changes now save locally only.', 'info');
   updateCloudStatusDisplay();
 }
