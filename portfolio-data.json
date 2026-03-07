@@ -1,0 +1,147 @@
+{
+  "profile": {
+    "name1": "HAGEN",
+    "name2": "",
+    "subtitle": "Building *immersive worlds* and memorable gameplay experiences. From concept to shipping .I bring ideas to life.",
+    "tag": "GAME DEVELOPER & DESIGNER",
+    "years": "1.5",
+    "navLogo": "hagen",
+    "title": "Hagen - Portfolio",
+    "footerLeft": "© HAGEN - GAME DEVELOPER",
+    "footerRight": "BUILT WITH PASSION",
+    "mechanicsIntro": "Standalone mechanics, prototypes, and systems I&#39;ve built. Click any to see a live preview or video demo.",
+    "stats": [
+      {
+        "value": "",
+        "label": "Games Made",
+        "auto": "games"
+      },
+      {
+        "value": "",
+        "label": "Mechanics",
+        "auto": "mechanics"
+      },
+      {
+        "value": "",
+        "label": "Groups",
+        "auto": "groups"
+      }
+    ],
+    "stat4Label": "Year Active",
+    "cta1Text": "VIEW MY WORK",
+    "cta1Page": "work",
+    "cta2Text": "GET IN TOUCH",
+    "cta2Page": "contact"
+  },
+  "games": [
+    {
+      "name": "Grab It",
+      "role": "Lead Developer",
+      "desc": "Built the round system, Gun spawn system along with raycast.\n\nGun will spawn in the middle, the goal is to be the first to Grab It, users have 3 shot attempts before the gun respawn at a random position within the map.",
+      "details": "",
+      "year": "2026",
+      "badge": "IN DEV",
+      "tags": [
+        "Shooter"
+      ],
+      "emoji": "🎮",
+      "links": []
+    }
+  ],
+  "mechanics": [
+    {
+      "name": "Example Mechanic",
+      "type": "Movement System",
+      "desc": "An example mechanic. Add yours in the admin panel!",
+      "details": "Describe how this mechanic works technically.",
+      "embedType": "none",
+      "embedUrl": "",
+      "emoji": "⚙️",
+      "badge": "",
+      "tags": [
+        "Lua",
+        "Physics"
+      ],
+      "links": []
+    }
+  ],
+  "groups": [
+    {
+      "name": "Epheris",
+      "role": "Owner & Developer",
+      "desc": "",
+      "rank": "gold",
+      "rankIcon": "👑",
+      "period": "2026 – Present",
+      "emoji": "👥",
+      "members": ""
+    }
+  ],
+  "contact": {
+    "intro": "Have a project in mind? Want to collaborate? Reach out through any of the channels below.",
+    "methods": [
+      {
+        "label": "Discord",
+        "icon": "💬",
+        "value": "vshagen",
+        "url": ""
+      },
+      {
+        "label": "Email",
+        "icon": "✉️",
+        "value": "admin@epheris.org",
+        "url": "mailto:your@email.com"
+      }
+    ]
+  },
+  "discord": {
+    "username": "vshagen",
+    "tag": "Add me to connect!",
+    "status": "Online & ready to collab",
+    "bio": "Connect with me on Discord for quick collabs, game dev talk, or just to hang out!",
+    "servers": [
+      {
+        "name": "My Dev Server",
+        "desc": "A server for game dev projects",
+        "icon": "🎮",
+        "url": "https://discord.gg/CNhh4N8UUa"
+      }
+    ]
+  },
+  "appearance": {
+    "theme": "forest",
+    "fontTheme": "orbitron",
+    "customColors": {},
+    "fx": {
+      "scanlines": true,
+      "grid": true,
+      "glow": true,
+      "animations": true
+    },
+    "layout": {
+      "cardStyle": "sharp",
+      "gridMin": 320,
+      "sectionPad": 5
+    },
+    "fontSizes": {
+      "hero": "5.5",
+      "body": ""
+    }
+  },
+  "nav": {
+    "visible": {
+      "work": true,
+      "mechanics": false,
+      "groups": true,
+      "contact": true,
+      "discord": true
+    },
+    "labels": {
+      "work": "",
+      "mechanics": "",
+      "groups": "",
+      "contact": "",
+      "discord": ""
+    }
+  }
+}
