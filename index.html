@@ -2173,6 +2173,20 @@ document.addEventListener('keydown', e => {
 });
 
 // ============================================================
+// LIVE REFRESH — re-renders all pages behind the admin panel
+// so changes are immediately visible when the user closes it
+// ============================================================
+function liveRefresh(pages) {
+  const targets = pages || ['home','work','mechanics','groups','contact','discord'];
+  targets.forEach(id => {
+    // Only re-render if the page element exists
+    const el = document.getElementById('page-' + id);
+    if (el) renderPage(id);
+  });
+  applyNavSettings();
+}
+
+// ============================================================
 // ADMIN
 // ============================================================
 function openAdmin() {
@@ -2276,7 +2290,7 @@ function saveGame() {
     links
   };
   if (i === -1) data.games.push(g); else data.games[i] = g;
-  saveAllData(); closeEditModal('edit-game-modal'); renderAdminGames();
+  saveAllData(); closeEditModal('edit-game-modal'); renderAdminGames(); liveRefresh(['home','work']);
 }
 
 // ============================================================
@@ -2339,7 +2353,7 @@ function saveMechanic() {
     links
   };
   if (i === -1) data.mechanics.push(m); else data.mechanics[i] = m;
-  saveAllData(); closeEditModal('edit-mechanic-modal'); renderAdminMechanics();
+  saveAllData(); closeEditModal('edit-mechanic-modal'); renderAdminMechanics(); liveRefresh(['home','mechanics']);
 }
 
 // ============================================================
@@ -2395,7 +2409,7 @@ function saveGroup() {
     members: sanitize(document.getElementById('edit-group-members').value)
   };
   if (i === -1) data.groups.push(g); else data.groups[i] = g;
-  saveAllData(); closeEditModal('edit-group-modal'); renderAdminGroups();
+  saveAllData(); closeEditModal('edit-group-modal'); renderAdminGroups(); liveRefresh(['home','groups']);
 }
 
 // ============================================================
@@ -2458,6 +2472,7 @@ function saveProfile() {
     cta2Page: document.getElementById('profile-cta2-page').value,
   });
   saveAllData();
+  liveRefresh(['home','mechanics']);
   const btn = event.target;
   btn.textContent = '✓ SAVED'; setTimeout(() => btn.textContent = 'SAVE PROFILE', 1500);
 }
@@ -2479,6 +2494,8 @@ function populateNavSettings() {
 
 function toggleNavPage(page) {
   data.nav.visible[page] = !data.nav.visible[page];
+  saveAllData();
+  liveRefresh();
   populateNavSettings();
 }
 
@@ -2488,6 +2505,7 @@ function saveNavSettings() {
     data.nav.labels[page] = sanitize(document.getElementById(`nav-label-${page}`).value);
   }
   saveAllData();
+  liveRefresh();
   const btn = event.target;
   btn.textContent = '✓ SAVED'; setTimeout(() => btn.textContent = 'SAVE NAV SETTINGS', 1500);
 }
@@ -2501,6 +2519,7 @@ function populateContactIntroForm() {
 function saveContactIntro() {
   data.contact.intro = sanitize(document.getElementById('contact-intro-text').value);
   saveAllData();
+  liveRefresh(['contact']);
   const btn = event.target; btn.textContent = '✓ SAVED'; setTimeout(() => btn.textContent = 'SAVE INTRO', 1500);
 }
 function renderAdminContacts() {
@@ -2534,7 +2553,7 @@ function saveContact() {
     url: document.getElementById('edit-contact-url').value.trim()
   };
   if (i === -1) data.contact.methods.push(m); else data.contact.methods[i] = m;
-  saveAllData(); closeEditModal('edit-contact-modal'); renderAdminContacts();
+  saveAllData(); closeEditModal('edit-contact-modal'); renderAdminContacts(); liveRefresh(['contact']);
 }
 
 // ============================================================
@@ -2555,6 +2574,7 @@ function saveDiscordInfo() {
     bio: sanitize(document.getElementById('discord-bio-input').value)
   });
   saveAllData();
+  liveRefresh(['discord']);
   const btn = event.target; btn.textContent = '✓ SAVED'; setTimeout(() => btn.textContent = 'SAVE DISCORD INFO', 1500);
 }
 function renderAdminDiscordServers() {
@@ -2588,7 +2608,7 @@ function saveDiscordServer() {
     url: document.getElementById('edit-ds-url').value.trim()
   };
   if (i === -1) data.discord.servers.push(s); else data.discord.servers[i] = s;
-  saveAllData(); closeEditModal('edit-discord-server-modal'); renderAdminDiscordServers();
+  saveAllData(); closeEditModal('edit-discord-server-modal'); renderAdminDiscordServers(); liveRefresh(['discord']);
 }
 
 // ============================================================
@@ -2729,6 +2749,9 @@ function deleteItem(type, i) {
   saveAllData();
   const re = { game: renderAdminGames, mechanic: renderAdminMechanics, group: renderAdminGroups, contact: renderAdminContacts, discordServer: renderAdminDiscordServers };
   if (re[type]) re[type]();
+  // live-refresh relevant pages
+  const pageMap = { game: ['home','work'], mechanic: ['home','mechanics'], group: ['home','groups'], contact: ['contact'], discordServer: ['discord'] };
+  liveRefresh(pageMap[type] || []);
 }
 
 // ============================================================
@@ -2751,6 +2774,8 @@ function drop(e, type, target) {
   saveAllData();
   const re = { game: renderAdminGames, mechanic: renderAdminMechanics, group: renderAdminGroups };
   if (re[type]) re[type]();
+  const pageMap = { game: ['home','work'], mechanic: ['home','mechanics'], group: ['home','groups'] };
+  liveRefresh(pageMap[type] || []);
 }
 
 // ============================================================
