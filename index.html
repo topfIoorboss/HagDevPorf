@@ -1685,23 +1685,25 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
 </div>
 
 <!-- Cloud config — owner/repo/branch baked in at setup time so all visitors can read data -->
-<span id="cloud-bin-meta" data-owner="topfIoorboss" data-repo="HagDevPorf" data-branch="main" style="display:none;"></span>
+<span id="cloud-bin-meta" data-owner="" data-repo="" data-branch="main" style="display:none;"></span>
 <script>
 'use strict';
 
 // ============================================================
-// SECURE AUTH
+// SECURE AUTH — SHA-256 hashed credentials
+// These are one-way hashes. Even if someone reads the source,
+// they cannot reverse a SHA-256 hash back to the password.
 // ============================================================
-const CRED_HASH = { u: btoa('ArthurGB12'), p: btoa('123ABCIdontKnow!1') };
+const CRED_HASH = {
+  u: 'c09a3f7396639f679b0fff394ce9ffe3efaaf84c897fae849d31e42be8c5b85a',
+  p: 'f191156db8ece3aacbaf1e80cd3a9dd27ff568a105dec34447b9f57d3dc30042'
+};
 let loginAttempts = 0;
 let lockoutUntil = 0;
 
-function secureCompare(a, b) {
-  const ea = btoa(typeof a === 'string' ? a : '');
-  if (ea.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < ea.length; i++) r |= ea.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function sanitize(str) {
@@ -2345,23 +2347,36 @@ function openLogin() {
 }
 function closeLogin() { document.getElementById('login-screen').style.display = 'none'; }
 
-function attemptLogin() {
+async function attemptLogin() {
   const now = Date.now();
-  if (now < lockoutUntil) {
-    const s = Math.ceil((lockoutUntil - now) / 1000);
+
+  // Lockout persists across refreshes via sessionStorage
+  const storedLockout = parseInt(sessionStorage.getItem('lockoutUntil') || '0');
+  if (storedLockout > now) {
+    const s = Math.ceil((storedLockout - now) / 1000);
     document.getElementById('login-error').textContent = `⚠ LOCKED OUT — WAIT ${s}s`;
     document.getElementById('login-error').style.display = 'block';
     return;
   }
+
   const u = document.getElementById('login-user').value;
   const p = document.getElementById('login-pass').value;
-  if (secureCompare(u, CRED_HASH.u) && secureCompare(p, CRED_HASH.p)) {
+
+  // Hash what the user typed and compare to stored hashes
+  const [hashU, hashP] = await Promise.all([sha256(u), sha256(p)]);
+
+  if (hashU === CRED_HASH.u && hashP === CRED_HASH.p) {
     loginAttempts = 0;
+    sessionStorage.removeItem('lockoutUntil');
     closeLogin();
     openAdmin();
   } else {
     loginAttempts++;
-    if (loginAttempts >= 5) lockoutUntil = now + 30000;
+    if (loginAttempts >= 5) {
+      const until = now + 30000;
+      lockoutUntil = until;
+      sessionStorage.setItem('lockoutUntil', until); // survives refresh
+    }
     document.getElementById('login-error').textContent = loginAttempts >= 5
       ? '⚠ LOCKED OUT FOR 30s'
       : `⚠ INVALID CREDENTIALS (${loginAttempts}/5)`;
