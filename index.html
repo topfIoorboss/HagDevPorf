@@ -1167,6 +1167,8 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
       <div class="admin-sidebar-item" onclick="adminNav('typography')" id="admin-nav-typography">🔤 Typography</div>
       <div class="admin-sidebar-item" onclick="adminNav('effects')" id="admin-nav-effects">✨ Visual Effects</div>
       <div class="admin-sidebar-item" onclick="adminNav('layout')" id="admin-nav-layout">📐 Layout</div>
+      <div class="admin-sidebar-group">SYSTEM</div>
+      <div class="admin-sidebar-item" onclick="adminNav('cloud')" id="admin-nav-cloud">☁️ Cloud Sync</div>
     </div>
 
     <!-- CONTENT -->
@@ -1440,6 +1442,47 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
           </div>
           <button class="admin-btn primary" onclick="saveLayout()">APPLY LAYOUT</button>
         </div>
+      </div>
+
+      <!-- CLOUD SYNC -->
+      <div class="admin-section" id="admin-cloud">
+        <div class="admin-section-header">☁️ CLOUD SYNC</div>
+        <div class="admin-section-sub">Connect JSONBin.io so your changes appear on every device & visitor</div>
+
+        <div style="background:color-mix(in srgb,var(--accent) 6%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);padding:1.25rem;margin-bottom:1.5rem;">
+          <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.75rem;">HOW TO SET UP (2 minutes, free)</div>
+          <ol style="font-size:0.85rem;color:var(--text2);line-height:2;padding-left:1.25rem;">
+            <li>Go to <strong style="color:var(--text);">jsonbin.io</strong> and create a free account</li>
+            <li>Click <strong style="color:var(--text);">+ Create Bin</strong> — paste <code style="background:var(--bg3);padding:0.1rem 0.4rem;font-family:var(--font-mono);font-size:0.8rem;">{}</code> as the content and save</li>
+            <li>Copy the <strong style="color:var(--text);">Bin ID</strong> from the URL (looks like <code style="background:var(--bg3);padding:0.1rem 0.4rem;font-family:var(--font-mono);font-size:0.8rem;">64abc123...</code>)</li>
+            <li>Go to <strong style="color:var(--text);">API Keys</strong> in your account, create a key, copy it</li>
+            <li>Paste both below and click <strong style="color:var(--text);">CONNECT & PUSH DATA</strong></li>
+          </ol>
+        </div>
+
+        <div class="admin-form">
+          <div class="admin-form-group">
+            <label class="admin-form-label">JSONBin Bin ID</label>
+            <input class="admin-form-input" id="cloud-bin-id" placeholder="e.g. 64abc123def456..." maxlength="100" style="font-family:var(--font-mono);">
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">JSONBin API Key (Master Key)</label>
+            <input class="admin-form-input" id="cloud-api-key" type="password" placeholder="$2a$10$..." maxlength="200" style="font-family:var(--font-mono);">
+            <div style="font-size:0.75rem;color:var(--text3);margin-top:0.3rem;">Stored only on your device — never sent anywhere except JSONBin.</div>
+          </div>
+
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+            <button class="admin-btn primary" onclick="connectCloud()">☁ CONNECT & PUSH DATA</button>
+            <button class="admin-btn" onclick="testCloudLoad()">↓ PULL FROM CLOUD</button>
+            <button class="admin-btn danger" onclick="disconnectCloud()">DISCONNECT</button>
+          </div>
+
+          <div id="cloud-status-msg" style="display:none;margin-top:1rem;padding:0.75rem 1rem;font-family:var(--font-mono);font-size:0.75rem;letter-spacing:1px;border:1px solid;"></div>
+        </div>
+
+        <div class="admin-divider"></div>
+        <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text3);letter-spacing:2px;margin-bottom:0.75rem;">CURRENT STATUS</div>
+        <div id="cloud-current-status" style="font-size:0.85rem;color:var(--text2);"></div>
       </div>
 
     </div><!-- /admin-content -->
@@ -1718,40 +1761,154 @@ const DEFAULT_DATA = {
 };
 
 // ============================================================
-// DATA STORE
+// DATA STORE — Cloud sync via JSONBin.io
+// localStorage is used as a fast cache; JSONBin is the
+// source of truth shared across all devices/visitors.
 // ============================================================
 let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
-function loadData() {
+// Cloud config — stored only in localStorage (never in the bin itself)
+function getCloudConfig() {
   try {
-    const s = localStorage.getItem('portfolio_hagen_v2');
-    if (s) {
-      const p = JSON.parse(s);
-      // Deep merge
-      for (const key of Object.keys(DEFAULT_DATA)) {
-        if (p[key] !== undefined) {
-          if (typeof p[key] === 'object' && !Array.isArray(p[key])) {
-            data[key] = Object.assign({}, DEFAULT_DATA[key], p[key]);
-            // deep merge nested
-            for (const k2 of Object.keys(DEFAULT_DATA[key])) {
-              if (typeof DEFAULT_DATA[key][k2] === 'object' && !Array.isArray(DEFAULT_DATA[key][k2]) && p[key][k2]) {
-                data[key][k2] = Object.assign({}, DEFAULT_DATA[key][k2], p[key][k2]);
-              }
-            }
-          } else {
-            data[key] = p[key];
-          }
-        }
-      }
-    }
-  } catch(e) { console.warn('Data load error', e); }
+    const c = localStorage.getItem('portfolio_cloud_cfg');
+    return c ? JSON.parse(c) : { binId: '', apiKey: '' };
+  } catch { return { binId: '', apiKey: '' }; }
+}
+function setCloudConfig(cfg) {
+  try { localStorage.setItem('portfolio_cloud_cfg', JSON.stringify(cfg)); } catch(e) {}
 }
 
-function saveAllData() {
+function deepMerge(base, incoming) {
+  const result = JSON.parse(JSON.stringify(base));
+  for (const key of Object.keys(incoming || {})) {
+    if (incoming[key] !== undefined) {
+      if (typeof incoming[key] === 'object' && !Array.isArray(incoming[key]) && incoming[key] !== null
+          && typeof result[key] === 'object' && !Array.isArray(result[key]) && result[key] !== null) {
+        result[key] = deepMerge(result[key], incoming[key]);
+      } else {
+        result[key] = incoming[key];
+      }
+    }
+  }
+  return result;
+}
+
+// Apply a raw data object onto the live `data` variable
+function applyDataObject(raw) {
+  data = deepMerge(DEFAULT_DATA, raw);
+}
+
+// ---- LOCAL CACHE ----
+function loadLocalCache() {
+  try {
+    const s = localStorage.getItem('portfolio_hagen_v2');
+    if (s) applyDataObject(JSON.parse(s));
+  } catch(e) { console.warn('Local cache load error', e); }
+}
+
+function writeLocalCache() {
   try { localStorage.setItem('portfolio_hagen_v2', JSON.stringify(data)); } catch(e) {}
 }
 
-loadData();
+// ---- JSONBIN CLOUD ----
+async function cloudLoad() {
+  const cfg = getCloudConfig();
+  if (!cfg.binId || !cfg.apiKey) return false;
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}/latest`, {
+      headers: { 'X-Master-Key': cfg.apiKey }
+    });
+    if (!res.ok) return false;
+    const json = await res.json();
+    if (json.record) {
+      applyDataObject(json.record);
+      writeLocalCache();
+      return true;
+    }
+  } catch(e) { console.warn('Cloud load failed:', e); }
+  return false;
+}
+
+async function cloudSave() {
+  const cfg = getCloudConfig();
+  if (!cfg.binId || !cfg.apiKey) return false;
+  try {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': cfg.apiKey
+      },
+      body: JSON.stringify(data)
+    });
+    return res.ok;
+  } catch(e) { console.warn('Cloud save failed:', e); }
+  return false;
+}
+
+// ---- COMBINED SAVE ----
+async function saveAllData() {
+  writeLocalCache();
+  const cfg = getCloudConfig();
+  if (cfg.binId && cfg.apiKey) {
+    const ok = await cloudSave();
+    return ok;
+  }
+  return false;
+}
+
+// ---- INIT LOAD ----
+// 1. Load local cache immediately (fast, instant render)
+// 2. Then try cloud in background — if newer data found, re-render
+async function initLoad() {
+  loadLocalCache();
+  applyAppearance();
+  applyNavSettings();
+  renderHome();
+
+  const cfg = getCloudConfig();
+  if (cfg.binId && cfg.apiKey) {
+    showSyncBanner('loading');
+    const ok = await cloudLoad();
+    if (ok) {
+      applyAppearance();
+      applyNavSettings();
+      liveRefresh();
+      showSyncBanner('ok');
+    } else {
+      showSyncBanner('error');
+    }
+  }
+}
+
+function showSyncBanner(state) {
+  let banner = document.getElementById('sync-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'sync-banner';
+    banner.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9000;font-family:var(--font-mono);font-size:0.65rem;letter-spacing:2px;padding:0.5rem 1rem;border:1px solid;transition:opacity 0.5s;pointer-events:none;';
+    document.body.appendChild(banner);
+  }
+  if (state === 'loading') {
+    banner.style.background = 'var(--surface)'; banner.style.borderColor = 'var(--border)'; banner.style.color = 'var(--text3)'; banner.style.opacity = '1';
+    banner.textContent = '⟳ SYNCING...';
+  } else if (state === 'ok') {
+    banner.style.background = 'color-mix(in srgb, var(--green) 10%, transparent)'; banner.style.borderColor = 'var(--green)'; banner.style.color = 'var(--green)'; banner.style.opacity = '1';
+    banner.textContent = '✓ SYNCED';
+    setTimeout(() => { banner.style.opacity = '0'; }, 2000);
+  } else if (state === 'saving') {
+    banner.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'; banner.style.borderColor = 'var(--accent)'; banner.style.color = 'var(--accent)'; banner.style.opacity = '1';
+    banner.textContent = '↑ SAVING...';
+  } else if (state === 'saved') {
+    banner.style.background = 'color-mix(in srgb, var(--green) 10%, transparent)'; banner.style.borderColor = 'var(--green)'; banner.style.color = 'var(--green)'; banner.style.opacity = '1';
+    banner.textContent = '✓ SAVED TO CLOUD';
+    setTimeout(() => { banner.style.opacity = '0'; }, 2500);
+  } else if (state === 'error') {
+    banner.style.background = 'color-mix(in srgb, var(--red) 10%, transparent)'; banner.style.borderColor = 'var(--red)'; banner.style.color = 'var(--red)'; banner.style.opacity = '1';
+    banner.textContent = '⚠ CLOUD UNAVAILABLE';
+    setTimeout(() => { banner.style.opacity = '0'; }, 4000);
+  }
+}
 
 // ============================================================
 // THEME DEFINITIONS
@@ -2201,11 +2358,20 @@ function closeAdmin() {
   renderPage(document.querySelector('.page.active')?.id.replace('page-','') || 'home');
 }
 
-function saveAll() {
-  saveAllData();
+async function saveAll() {
   const ind = document.getElementById('admin-save-indicator');
-  ind.textContent = '✓ SAVED';
-  setTimeout(() => ind.textContent = '', 2000);
+  ind.textContent = '↑ saving...';
+  showSyncBanner('saving');
+  const ok = await saveAllData();
+  const cfg = getCloudConfig();
+  if (cfg.binId && cfg.apiKey) {
+    ind.textContent = ok ? '✓ SAVED TO CLOUD' : '⚠ LOCAL ONLY';
+    showSyncBanner(ok ? 'saved' : 'error');
+  } else {
+    ind.textContent = '✓ SAVED LOCALLY';
+    showSyncBanner('ok');
+  }
+  setTimeout(() => ind.textContent = '', 3000);
 }
 
 function adminNav(section) {
@@ -2227,7 +2393,8 @@ function adminNav(section) {
     'discord-settings': () => { populateDiscordForm(); renderAdminDiscordServers(); },
     'profile': populateProfileForm,
     'nav-settings': populateNavSettings,
-    'layout': populateLayoutForm
+    'layout': populateLayoutForm,
+    'cloud': populateCloudPanel
   };
   if (renderMap[section]) renderMap[section]();
 }
@@ -2787,11 +2954,81 @@ document.getElementById('game-modal').addEventListener('click', function(e) { if
 document.getElementById('mechanic-modal').addEventListener('click', function(e) { if (e.target === this) closeMechanicModal(); });
 
 // ============================================================
+// CLOUD PANEL
+// ============================================================
+function populateCloudPanel() {
+  const cfg = getCloudConfig();
+  document.getElementById('cloud-bin-id').value = cfg.binId || '';
+  document.getElementById('cloud-api-key').value = cfg.apiKey || '';
+  updateCloudStatusDisplay();
+}
+
+function updateCloudStatusDisplay() {
+  const cfg = getCloudConfig();
+  const el = document.getElementById('cloud-current-status');
+  if (!el) return;
+  if (cfg.binId && cfg.apiKey) {
+    el.innerHTML = `<span style="color:var(--green);">● CONNECTED</span> — Bin ID: <code style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text2);">${cfg.binId.slice(0,12)}...</code><br><span style="font-size:0.8rem;color:var(--text3);">All saves push to cloud. All visitors load from cloud.</span>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--red);">● NOT CONNECTED</span> — Changes only save locally on your device.<br><span style="font-size:0.8rem;color:var(--text3);">Set up JSONBin above to sync across all devices.</span>`;
+  }
+}
+
+function setCloudMsg(msg, type) {
+  const el = document.getElementById('cloud-status-msg');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = msg;
+  if (type === 'ok') { el.style.borderColor = 'var(--green)'; el.style.color = 'var(--green)'; el.style.background = 'color-mix(in srgb,var(--green) 8%,transparent)'; }
+  else if (type === 'error') { el.style.borderColor = 'var(--red)'; el.style.color = 'var(--red)'; el.style.background = 'color-mix(in srgb,var(--red) 8%,transparent)'; }
+  else { el.style.borderColor = 'var(--accent)'; el.style.color = 'var(--accent)'; el.style.background = 'color-mix(in srgb,var(--accent) 8%,transparent)'; }
+}
+
+async function connectCloud() {
+  const binId = document.getElementById('cloud-bin-id').value.trim();
+  const apiKey = document.getElementById('cloud-api-key').value.trim();
+  if (!binId || !apiKey) { setCloudMsg('⚠ Please enter both Bin ID and API Key.', 'error'); return; }
+  setCloudMsg('⟳ Connecting and pushing your data...', 'info');
+  setCloudConfig({ binId, apiKey });
+  const ok = await cloudSave();
+  if (ok) {
+    setCloudMsg('✓ Connected! Your data is now live on the cloud. All visitors will see your latest changes.', 'ok');
+    updateCloudStatusDisplay();
+  } else {
+    setCloudMsg('⚠ Connection failed. Double-check your Bin ID and API Key and try again.', 'error');
+    setCloudConfig({ binId: '', apiKey: '' });
+  }
+}
+
+async function testCloudLoad() {
+  const binId = document.getElementById('cloud-bin-id').value.trim();
+  const apiKey = document.getElementById('cloud-api-key').value.trim();
+  if (!binId || !apiKey) { setCloudMsg('⚠ Enter credentials first.', 'error'); return; }
+  setCloudConfig({ binId, apiKey });
+  setCloudMsg('⟳ Pulling latest data from cloud...', 'info');
+  const ok = await cloudLoad();
+  if (ok) {
+    applyAppearance(); applyNavSettings(); liveRefresh();
+    setCloudMsg('✓ Data pulled from cloud and applied!', 'ok');
+    updateCloudStatusDisplay();
+  } else {
+    setCloudMsg('⚠ Pull failed. Check your credentials.', 'error');
+  }
+}
+
+function disconnectCloud() {
+  if (!confirm('Disconnect cloud sync? Changes will only save locally until you reconnect.')) return;
+  setCloudConfig({ binId: '', apiKey: '' });
+  document.getElementById('cloud-bin-id').value = '';
+  document.getElementById('cloud-api-key').value = '';
+  setCloudMsg('Disconnected. Changes now save locally only.', 'info');
+  updateCloudStatusDisplay();
+}
+
+// ============================================================
 // INIT
 // ============================================================
-applyAppearance();
-applyNavSettings();
-renderHome();
+initLoad();
 </script>
 </body>
 </html>
