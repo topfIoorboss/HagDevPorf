@@ -1474,7 +1474,12 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
           <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
             <button class="admin-btn primary" onclick="connectCloud()">☁ CONNECT & PUSH DATA</button>
             <button class="admin-btn" onclick="testCloudLoad()">↓ PULL FROM CLOUD</button>
+            <button class="admin-btn success" onclick="downloadUpdatedHTML()">⬇ DOWNLOAD UPDATED HTML</button>
             <button class="admin-btn danger" onclick="disconnectCloud()">DISCONNECT</button>
+          </div>
+
+          <div style="margin-top:0.75rem;padding:0.75rem 1rem;background:var(--bg3);border:1px solid var(--border);font-size:0.8rem;color:var(--text3);line-height:1.6;">
+            <strong style="color:var(--text2);">After connecting:</strong> Click <strong style="color:var(--text);">⬇ DOWNLOAD UPDATED HTML</strong> to get a new version of the file with your Bin ID baked in. Upload that to GitHub Pages — then every visitor can load your data automatically without needing a key.
           </div>
 
           <div id="cloud-status-msg" style="display:none;margin-top:1rem;padding:0.75rem 1rem;font-family:var(--font-mono);font-size:0.75rem;letter-spacing:1px;border:1px solid;"></div>
@@ -1667,7 +1672,8 @@ body.hide-glow .hero-glow, body.hide-glow .hero-glow2 { display: none; }
   </div>
 </div>
 
-<!-- ===== JAVASCRIPT ===== -->
+<!-- Cloud Bin ID — filled in when you connect and re-export -->
+<span id="cloud-bin-meta" data-bin="" style="display:none;"></span>
 <script>
 'use strict';
 
@@ -1767,15 +1773,37 @@ const DEFAULT_DATA = {
 // ============================================================
 let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
-// Cloud config — stored only in localStorage (never in the bin itself)
+// Cloud config — API key stored only in localStorage (never exposed)
+// Bin ID is stored in localStorage AND embedded in the page meta so visitors can read
 function getCloudConfig() {
   try {
+    // Check localStorage first
     const c = localStorage.getItem('portfolio_cloud_cfg');
-    return c ? JSON.parse(c) : { binId: '', apiKey: '' };
+    const local = c ? JSON.parse(c) : {};
+    // Also check page-embedded bin id (set at connect time, visible to all visitors)
+    const metaEl = document.getElementById('cloud-bin-meta');
+    const embeddedBinId = metaEl ? metaEl.getAttribute('data-bin') : '';
+    return {
+      binId: local.binId || embeddedBinId || '',
+      apiKey: local.apiKey || ''
+    };
   } catch { return { binId: '', apiKey: '' }; }
 }
+
 function setCloudConfig(cfg) {
-  try { localStorage.setItem('portfolio_cloud_cfg', JSON.stringify(cfg)); } catch(e) {}
+  try {
+    localStorage.setItem('portfolio_cloud_cfg', JSON.stringify(cfg));
+    // Also embed bin ID in the page DOM so it persists in the HTML file
+    // (visitors who load the page will pick it up even without localStorage)
+    let metaEl = document.getElementById('cloud-bin-meta');
+    if (!metaEl) {
+      metaEl = document.createElement('div');
+      metaEl.id = 'cloud-bin-meta';
+      metaEl.style.display = 'none';
+      document.body.appendChild(metaEl);
+    }
+    metaEl.setAttribute('data-bin', cfg.binId || '');
+  } catch(e) {}
 }
 
 function deepMerge(base, incoming) {
@@ -1813,11 +1841,12 @@ function writeLocalCache() {
 // ---- JSONBIN CLOUD ----
 async function cloudLoad() {
   const cfg = getCloudConfig();
-  if (!cfg.binId || !cfg.apiKey) return false;
+  if (!cfg.binId) return false;
   try {
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}/latest`, {
-      headers: { 'X-Master-Key': cfg.apiKey }
-    });
+    // Try with key first (owner), then without (public read)
+    const headers = {};
+    if (cfg.apiKey) headers['X-Master-Key'] = cfg.apiKey;
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${cfg.binId}/latest`, { headers });
     if (!res.ok) return false;
     const json = await res.json();
     if (json.record) {
@@ -1837,7 +1866,8 @@ async function cloudSave() {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': cfg.apiKey
+        'X-Master-Key': cfg.apiKey,
+        'X-Bin-Private': 'false'   // make bin publicly readable so any visitor can load it
       },
       body: JSON.stringify(data)
     });
@@ -3014,6 +3044,28 @@ async function testCloudLoad() {
   } else {
     setCloudMsg('⚠ Pull failed. Check your credentials.', 'error');
   }
+}
+
+function downloadUpdatedHTML() {
+  const cfg = getCloudConfig();
+  if (!cfg.binId) {
+    setCloudMsg('⚠ Connect to cloud first before downloading.', 'error');
+    return;
+  }
+  // Get the current page HTML and inject the bin ID into the meta span
+  let html = document.documentElement.outerHTML;
+  // Replace the data-bin="" with the actual bin ID
+  html = html.replace(
+    /(<span id="cloud-bin-meta" data-bin=")[^"]*(")/,
+    `$1${cfg.binId}$2`
+  );
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'index.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setCloudMsg('✓ Downloaded! Upload this index.html to GitHub Pages to make it live for everyone.', 'ok');
 }
 
 function disconnectCloud() {
