@@ -539,23 +539,36 @@ function getXTrackerKey() {
 const PROXIES = [
     url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
     url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    url => `https://thingproxy.freeboard.io/fetch/${url}`,
 ];
+
+// Fetch with a hard timeout — prevents hanging on dead proxies
+async function fetchWithTimeout(url, opts = {}, ms = 6000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+        const r = await fetch(url, { ...opts, signal: controller.signal });
+        clearTimeout(timer);
+        return r;
+    } catch (e) {
+        clearTimeout(timer);
+        throw e;
+    }
+}
 
 async function proxyFetch(url, fallback, opts = {}) {
     // 1. Try direct (works in some environments)
     try {
-        const r = await fetch(url, opts);
+        const r = await fetchWithTimeout(url, opts, 5000);
         if (r.ok) {
             const text = await r.text();
             try { return JSON.parse(text); } catch { return fallback; }
         }
     } catch {}
 
-    // 2. Try each proxy in order
+    // 2. Try each proxy in order with timeout
     for (const makeProxy of PROXIES) {
         try {
-            const r = await fetch(makeProxy(url), opts);
+            const r = await fetchWithTimeout(makeProxy(url), opts, 7000);
             if (r.ok) {
                 const text = await r.text();
                 try { return JSON.parse(text); } catch { continue; }
@@ -576,7 +589,7 @@ async function resolveUsername(username) {
 
     // Direct first
     try {
-        const r = await fetch(TARGET, OPTS);
+        const r = await fetchWithTimeout(TARGET, OPTS, 5000);
         if (r.ok) {
             const d = await r.json();
             if (d.data?.length > 0) return d.data[0].id;
@@ -584,15 +597,15 @@ async function resolveUsername(username) {
         }
     } catch {}
 
-    // Proxies — POST with body needs special handling per proxy
+    // Proxied POST attempts
     for (const makeProxy of PROXIES) {
         try {
-            const r = await fetch(makeProxy(TARGET), OPTS);
+            const r = await fetchWithTimeout(makeProxy(TARGET), OPTS, 7000);
             if (r.ok) {
                 const text = await r.text();
                 const d = JSON.parse(text);
                 if (d.data?.length > 0) return d.data[0].id;
-                return null; // valid response, username just doesn't exist
+                return null;
             }
         } catch {}
     }
