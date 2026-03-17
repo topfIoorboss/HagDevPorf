@@ -1042,7 +1042,22 @@ function copyReport() {
         `Badges   : ${currentResult.badges.length}`,
         `Generated: ${new Date().toLocaleString('en-GB')}`,
     ].join('\n');
-    navigator.clipboard.writeText(lines).then(() => alert('Report copied to clipboard!'));
+    navigator.clipboard.writeText(lines).then(() => showToast('Report copied to clipboard'));
+}
+
+function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#10b981;color:#000;font-weight:600;font-size:13px;padding:10px 20px;border-radius:12px;opacity:0;transition:all 0.3s ease;z-index:9999;font-family:JetBrains Mono,monospace;white-space:nowrap;';
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(10px)'; }, 2500);
 }
 
 // ════════════════════════════════════════════════
@@ -1119,7 +1134,7 @@ window.onload = function() {
 
     document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     showTab(0);
-    console.log('%c✅ AltGuard v2 ready\nPassword: AccountChecker123\nxTracker: real API wired', 'color:#10b981;font-family:monospace;font-size:13px');
+    console.log('%c✅ AltGuard ready', 'color:#10b981;font-family:monospace');
 };
 </script>
 </body>
