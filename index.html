@@ -527,42 +527,63 @@ function getXTrackerKey() {
 }
 
 // ════════════════════════════════════════════════
-//  ROBLOX API
+//  ROBLOX API  (proxied to bypass CORS)
 // ════════════════════════════════════════════════
+
+// corsproxy.io wraps the URL and adds the required CORS headers
+const PROXY = 'https://corsproxy.io/?url=';
+const proxy = url => PROXY + encodeURIComponent(url);
+
 async function resolveUsername(username) {
+    // Try direct first (works when opened from certain environments),
+    // then fall back to proxy.
+    const TARGET = 'https://users.roblox.com/v1/usernames/users';
+    const BODY   = JSON.stringify({ usernames: [username], excludeBannedUsers: false });
+    const OPTS   = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: BODY };
+
+    // 1) direct attempt
     try {
-        const r = await fetch('https://users.roblox.com/v1/usernames/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
-        });
-        const d = await r.json();
-        if (d.data && d.data.length > 0) return d.data[0].id;
+        const r = await fetch(TARGET, OPTS);
+        if (r.ok) {
+            const d = await r.json();
+            if (d.data && d.data.length > 0) return d.data[0].id;
+            return null; // username genuinely not found
+        }
     } catch {}
+
+    // 2) proxy attempt
+    try {
+        const r = await fetch(proxy(TARGET), OPTS);
+        if (r.ok) {
+            const d = await r.json();
+            if (d.data && d.data.length > 0) return d.data[0].id;
+            return null;
+        }
+    } catch {}
+
     return null;
 }
 
+async function proxyFetch(url, fallback) {
+    // Try direct, then proxied
+    for (const target of [url, proxy(url)]) {
+        try {
+            const r = await fetch(target);
+            if (r.ok) return r.json().catch(() => fallback);
+        } catch {}
+    }
+    return fallback;
+}
+
 async function fetchRobloxData(userId) {
-    const [userRes, friendsRes, followersRes, followingRes, groupsRes, badgesRes, thumbRes] = await Promise.allSettled([
-        fetch(`https://users.roblox.com/v1/users/${userId}`),
-        fetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`),
-        fetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`),
-        fetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`),
-        fetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`),
-        fetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`),
-        fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`)
-    ]);
-
-    const safe = (res, fallback) => res.status === 'fulfilled' ? res.value.json().catch(() => fallback) : Promise.resolve(fallback);
-
     const [userInfo, friends, followers, following, groups, badges, thumb] = await Promise.all([
-        safe(userRes, {}),
-        safe(friendsRes, { count: 0 }),
-        safe(followersRes, { count: 0 }),
-        safe(followingRes, { count: 0 }),
-        safe(groupsRes, { data: [] }),
-        safe(badgesRes, { data: [] }),
-        safe(thumbRes, {})
+        proxyFetch(`https://users.roblox.com/v1/users/${userId}`,                                                          {}),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`,                                          { count: 0 }),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`,                                        { count: 0 }),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`,                                       { count: 0 }),
+        proxyFetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`,                                            { data: [] }),
+        proxyFetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`,                         { data: [] }),
+        proxyFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`,     {})
     ]);
 
     return {
