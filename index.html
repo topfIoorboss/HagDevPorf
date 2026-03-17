@@ -580,32 +580,38 @@ async function proxyFetch(url, fallback, opts = {}) {
 }
 
 async function resolveUsername(username) {
-    const TARGET = 'https://users.roblox.com/v1/usernames/users';
-    const OPTS   = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
-    };
+    // Use GET-based endpoints — POST bodies are stripped by most CORS proxies.
+    // Roblox has two GET-based username→id endpoints we can fall back between.
+    const encoded = encodeURIComponent(username);
 
-    // Direct first
-    try {
-        const r = await fetchWithTimeout(TARGET, OPTS, 5000);
-        if (r.ok) {
-            const d = await r.json();
-            if (d.data?.length > 0) return d.data[0].id;
-            return null;
-        }
-    } catch {}
+    // Endpoint 1: legacy GET (returns {Id, Username, ...})
+    const LEGACY = `https://api.roblox.com/users/get-by-username?username=${encoded}`;
+    // Endpoint 2: search API — returns array, find exact match
+    const SEARCH = `https://users.roblox.com/v1/users/search?keyword=${encoded}&limit=10`;
 
-    // Proxied POST attempts
-    for (const makeProxy of PROXIES) {
+    // Try legacy endpoint (direct + each proxy)
+    for (const makeTarget of [u => u, ...PROXIES]) {
         try {
-            const r = await fetchWithTimeout(makeProxy(TARGET), OPTS, 7000);
+            const r = await fetchWithTimeout(makeTarget(LEGACY), {}, 6000);
             if (r.ok) {
-                const text = await r.text();
-                const d = JSON.parse(text);
-                if (d.data?.length > 0) return d.data[0].id;
-                return null;
+                const d = await r.json();
+                // Returns {Id:..., Username:...} or {errors:[...]} if not found
+                if (d.Id) return d.Id;
+                if (d.errors) return null; // valid "not found" response
+            }
+        } catch {}
+    }
+
+    // Try search endpoint — find exact case-insensitive match
+    for (const makeTarget of [u => u, ...PROXIES]) {
+        try {
+            const r = await fetchWithTimeout(makeTarget(SEARCH), {}, 6000);
+            if (r.ok) {
+                const d = await r.json();
+                if (d.data?.length > 0) {
+                    const match = d.data.find(u => u.name.toLowerCase() === username.toLowerCase());
+                    if (match) return match.id;
+                }
             }
         } catch {}
     }
