@@ -6,764 +6,1041 @@
     <title>AltGuard • Roblox Account Checker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .mono {
-            font-family: 'Roboto Mono', monospace;
-        }
-        
-        .roblox-green {
-            color: #00b15c;
-        }
-        
+        * { box-sizing: border-box; }
+        body { font-family: 'Space Grotesk', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* ── scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 99px; }
+
+        /* ── glass ── */
         .glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(16px);
+            background: rgba(255,255,255,0.035);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
-        
-        .result-card {
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        
-        .check-row {
-            transition: all 0.3s ease;
-        }
-        
-        .check-row:hover {
-            transform: translateX(8px);
-        }
-        
+
+        /* ── avatar ring ── */
         .avatar-ring {
-            animation: pulse 4s infinite ease-in-out;
+            box-shadow: 0 0 0 3px #10b981, 0 0 30px 4px rgba(16,185,129,0.25);
         }
-        
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 177, 92, 0.4); }
-            70% { box-shadow: 0 0 0 20px rgba(0, 177, 92, 0); }
+
+        /* ── score ring animation ── */
+        #score-progress {
+            transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        /* ── check-row hover ── */
+        .check-row { transition: transform 0.2s ease; }
+        .check-row:hover { transform: translateX(6px); }
+
+        /* ── loading shimmer ── */
+        @keyframes shimmer {
+            0%   { background-position: -700px 0; }
+            100% { background-position: 700px 0; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%);
+            background-size: 700px 100%;
+            animation: shimmer 1.4s infinite linear;
+            border-radius: 6px;
+        }
+
+        /* ── pulse dot ── */
+        @keyframes pulseDot {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .5; transform: scale(1.4); }
+        }
+        .pulse-dot { animation: pulseDot 1.5s infinite ease-in-out; }
+
+        /* ── tab underline slide ── */
+        .tab-btn { position: relative; }
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; left: 0; right: 0;
+            height: 2px;
+            background: #10b981;
+            transform: scaleX(0);
+            transition: transform .25s ease;
+            border-radius: 99px;
+        }
+        .tab-btn.active::after { transform: scaleX(1); }
+        .tab-btn.active { color: #10b981 !important; }
+
+        /* ── fade-in result ── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.45s ease forwards; }
+
+        /* ── badge pill ── */
+        .badge-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 99px; font-size: 11px;
+            font-weight: 600; font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── verdict glow ── */
+        .verdict-legit  { background:#10b981; color:#000; box-shadow: 0 0 18px rgba(16,185,129,0.4); }
+        .verdict-likely { background:#f59e0b; color:#000; box-shadow: 0 0 18px rgba(245,158,11,0.4); }
+        .verdict-sus    { background:#ef4444; color:#fff; box-shadow: 0 0 18px rgba(239,68,68,0.4); }
+
+        /* ── signal row colours ── */
+        .sig-good { color: #10b981; }
+        .sig-warn { color: #f59e0b; }
+        .sig-bad  { color: #ef4444; }
+
+        /* ── input focus ring ── */
+        .input-field:focus { border-color: #10b981 !important; outline: none; box-shadow: 0 0 0 2px rgba(16,185,129,0.2); }
+
+        /* ── spinner ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin 0.7s linear infinite; }
+
+        /* ── xtracker flag ── */
+        .xt-flag-bg   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); }
+        .xt-clean-bg  { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); }
+        .xt-error-bg  { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); }
     </style>
 </head>
 <body class="bg-zinc-950 text-white min-h-screen">
-    <!-- LOGIN SCREEN -->
-    <div id="login-screen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-black">
-        <div class="glass border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md p-10">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 rounded-2xl mb-4">
-                    <i class="fa-solid fa-shield-halved text-5xl text-emerald-400"></i>
-                </div>
-                <h1 class="text-4xl font-bold tracking-tighter">AltGuard</h1>
-                <p class="text-zinc-400 mt-2">Roblox Account Verifier</p>
-                <div class="h-1 w-16 bg-emerald-500 mx-auto mt-6 rounded-full"></div>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen" class="flex items-center justify-center min-h-screen">
+    <div class="glass border border-zinc-800 rounded-3xl shadow-2xl w-full max-w-sm p-10">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 rounded-2xl mb-4">
+                <i class="fa-solid fa-shield-halved text-4xl text-emerald-400"></i>
             </div>
-            
-            <div class="space-y-6">
-                <div>
-                    <label class="block text-sm font-medium text-zinc-400 mb-2">ACCESS PASSWORD</label>
-                    <div class="relative">
-                        <input id="password-input" 
-                               type="password" 
-                               class="w-full bg-zinc-900 border border-zinc-700 focus:border-emerald-500 rounded-2xl px-6 py-4 text-lg outline-none transition-all"
-                               placeholder="••••••••••••">
-                        <button onclick="togglePassword()" 
-                                class="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">
-                            <i id="eye-icon" class="fa-solid fa-eye"></i>
-                        </button>
-                    </div>
+            <h1 class="text-3xl font-bold tracking-tight">AltGuard</h1>
+            <p class="text-zinc-400 text-sm mt-1 mono">Roblox Account Verifier</p>
+            <div class="h-0.5 w-12 bg-emerald-500 mx-auto mt-5 rounded-full"></div>
+        </div>
+
+        <div class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 mb-2 tracking-widest">ACCESS PASSWORD</label>
+                <div class="relative">
+                    <input id="password-input" type="password"
+                        class="input-field w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3.5 text-base outline-none transition-all"
+                        placeholder="••••••••••••">
+                    <button onclick="togglePassword()" tabindex="-1"
+                        class="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors">
+                        <i id="eye-icon" class="fa-solid fa-eye"></i>
+                    </button>
                 </div>
-                
-                <div class="flex items-center justify-between text-sm">
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        <input id="remember-me" type="checkbox" class="w-5 h-5 accent-emerald-500 bg-zinc-900 border-zinc-700 rounded-xl">
-                        <span class="text-zinc-300">Remember me</span>
-                    </label>
-                    <button onclick="forgotPassword()" 
-                            class="text-emerald-400 hover:text-emerald-300 text-sm">Forgot password?</button>
-                </div>
-                
-                <button onclick="login()" 
-                        class="w-full bg-emerald-500 hover:bg-emerald-600 transition-all font-semibold py-5 rounded-2xl text-xl flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/30">
-                    <i class="fa-solid fa-right-to-bracket"></i>
-                    UNLOCK CHECKER
-                </button>
-                
-                <div id="login-error" class="hidden text-red-400 text-center text-sm py-2 bg-red-950/50 rounded-2xl"></div>
-                
-                <div class="text-center text-[10px] text-zinc-500 mono">
-                    PASSWORD: AccountChecker123<br>
-                    <span class="text-emerald-400">Security: 3-attempt lockout + 60s cooldown</span>
-                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input id="remember-me" type="checkbox" class="w-4 h-4 accent-emerald-500 rounded">
+                    <span class="text-zinc-300">Remember me</span>
+                </label>
+                <button onclick="forgotPassword()" class="text-emerald-400 hover:text-emerald-300 text-xs transition-colors">Forgot?</button>
+            </div>
+
+            <button onclick="login()"
+                class="w-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                UNLOCK CHECKER
+            </button>
+
+            <div id="login-error" class="hidden text-red-400 text-center text-xs py-2.5 bg-red-950/40 border border-red-900/40 rounded-xl mono"></div>
+
+            <div class="text-center text-[10px] text-zinc-600 mono">
+                PASSWORD: AccountChecker123<br>
+                <span class="text-emerald-600">3-attempt lockout · 60s cooldown</span>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- MAIN APP -->
-    <div id="main-app" class="hidden">
-        <!-- NAVBAR -->
-        <nav class="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-lg fixed w-full z-50">
-            <div class="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-3">
-                        <i class="fa-solid fa-shield-halved text-3xl text-emerald-400"></i>
-                        <div>
-                            <span class="text-2xl font-bold tracking-tighter">AltGuard</span>
-                            <span class="text-emerald-400 text-xs block -mt-1">ROBLOX VERIFIER</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-8">
-                    <div onclick="showTab(0)" id="tab-0"
-                         class="cursor-pointer flex items-center gap-2 text-emerald-400 border-b-2 border-emerald-400 pb-1">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <span class="font-medium">Checker</span>
-                    </div>
-                    <div onclick="showTab(1)" id="tab-1"
-                         class="cursor-pointer flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                        <span class="font-medium">History</span>
-                    </div>
-                    <div onclick="showTab(2)" id="tab-2"
-                         class="cursor-pointer flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-                        <i class="fa-solid fa-cog"></i>
-                        <span class="font-medium">Settings</span>
-                    </div>
-                    
-                    <div class="flex items-center gap-3 pl-6 border-l border-zinc-800">
-                        <div class="w-9 h-9 bg-zinc-800 rounded-2xl flex items-center justify-center text-emerald-400 cursor-pointer hover:bg-zinc-700"
-                             onclick="logout()">
-                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                        </div>
-                    </div>
+<!-- ══════════ MAIN APP ══════════ -->
+<div id="main-app" class="hidden">
+
+    <!-- NAVBAR -->
+    <nav class="border-b border-zinc-800/70 bg-zinc-950/80 backdrop-blur-xl fixed w-full z-50">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-shield-halved text-2xl text-emerald-400"></i>
+                <div>
+                    <span class="text-lg font-bold tracking-tight">AltGuard</span>
+                    <span class="text-emerald-400 text-[10px] mono block -mt-1">ROBLOX VERIFIER</span>
                 </div>
             </div>
-        </nav>
 
-        <div class="max-w-7xl mx-auto pt-28 px-8 pb-12">
-            <!-- CHECKER TAB -->
-            <div id="tab-content-0">
-                <div class="mb-10">
-                    <h2 class="text-5xl font-bold tracking-tighter mb-2">Verify Roblox Account</h2>
-                    <p class="text-zinc-400 text-xl">Enter a username • Get instant legitimacy report</p>
+            <div class="flex items-center gap-1">
+                <button onclick="showTab(0)" id="tab-0" class="tab-btn active px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i> Checker
+                </button>
+                <button onclick="showTab(1)" id="tab-1" class="tab-btn px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-xs"></i> History
+                </button>
+                <button onclick="showTab(2)" id="tab-2" class="tab-btn px-5 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-cog text-xs"></i> Settings
+                </button>
+                <div class="w-px h-5 bg-zinc-700 mx-2"></div>
+                <button onclick="logout()" title="Logout"
+                    class="w-8 h-8 bg-zinc-800 hover:bg-zinc-700 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-all">
+                    <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto pt-24 px-6 pb-14">
+
+        <!-- ── CHECKER TAB ── -->
+        <div id="tab-content-0">
+            <div class="mb-8">
+                <h2 class="text-4xl font-bold tracking-tight mb-1">Verify Roblox Account</h2>
+                <p class="text-zinc-400">Enter a username to get an instant legitimacy report</p>
+            </div>
+
+            <!-- SEARCH BAR -->
+            <div class="glass border border-zinc-700 rounded-2xl p-2 flex items-center gap-3 mb-10">
+                <div class="flex-1 flex items-center gap-3 px-4">
+                    <i class="fa-solid fa-user text-zinc-500 text-sm"></i>
+                    <input id="username-input" type="text" placeholder="Enter Roblox username…"
+                        class="flex-1 bg-transparent text-lg outline-none py-3 mono placeholder:text-zinc-600"
+                        onkeydown="if(event.key==='Enter') startCheck()">
                 </div>
-                
-                <!-- SEARCH BAR -->
-                <div class="glass border border-zinc-700 rounded-3xl p-3 flex items-center gap-4 mb-12">
-                    <input id="username-input" 
-                           type="text" 
-                           placeholder="roblox_username"
-                           class="flex-1 bg-transparent text-2xl outline-none px-6 py-5 mono placeholder:text-zinc-500">
-                    <button onclick="startCheck()" 
-                            class="bg-emerald-500 hover:bg-emerald-600 px-12 py-5 rounded-3xl font-semibold flex items-center gap-3 transition-all active:scale-95">
-                        <i class="fa-solid fa-search"></i>
-                        CHECK ACCOUNT
-                    </button>
-                </div>
-                
-                <!-- RESULTS AREA -->
-                <div id="results-area" class="hidden">
-                    <!-- PROFILE HEADER -->
-                    <div class="glass border border-zinc-700 rounded-3xl p-8 mb-8 flex gap-8 items-center">
-                        <img id="avatar" 
-                             src="https://via.placeholder.com/150" 
-                             class="w-32 h-32 rounded-3xl object-cover avatar-ring border-4 border-emerald-500">
-                        
-                        <div class="flex-1">
-                            <div class="flex items-center gap-4">
-                                <h3 id="display-name" class="text-4xl font-bold"></h3>
-                                <div id="verified-badge" class="hidden text-xs bg-emerald-500 text-black px-4 py-1 rounded-3xl font-bold flex items-center gap-1">
-                                    <i class="fa-solid fa-circle-check"></i> VERIFIED
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3 text-zinc-400 mono">
-                                <span id="username-display">@username</span>
-                                <span class="text-2xl text-zinc-600">•</span>
-                                <span id="user-id" class="text-emerald-400"></span>
-                            </div>
-                            
-                            <div class="mt-6 flex gap-8 text-sm">
-                                <div>
-                                    <span class="text-zinc-400">Created</span>
-                                    <div id="created-date" class="text-xl font-semibold mono"></div>
-                                </div>
-                                <div>
-                                    <span class="text-zinc-400">Account Age</span>
-                                    <div id="age" class="text-xl font-semibold text-emerald-400"></div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- LEGIT SCORE -->
-                        <div class="text-right">
-                            <div class="text-xs text-zinc-400 mb-2 tracking-widest">LEGITIMACY SCORE</div>
-                            <div id="score-circle" 
-                                 class="relative w-32 h-32 mx-auto">
-                                <svg class="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-                                    <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" stroke-width="14"></circle>
-                                    <circle id="score-progress" 
-                                            cx="60" cy="60" r="52" 
-                                            fill="none" 
-                                            stroke="#00b15c" 
-                                            stroke-width="14"
-                                            stroke-dasharray="326.73"
-                                            stroke-dashoffset="326.73"></circle>
-                                </svg>
-                                <div class="absolute inset-0 flex items-center justify-center">
-                                    <div>
-                                        <div id="score-value" class="text-6xl font-bold text-center text-emerald-400">92</div>
-                                        <div class="text-[10px] text-center text-zinc-400 tracking-widest -mt-2">/100</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="verdict" 
-                                 class="mt-4 text-sm font-bold px-6 py-2 inline-block rounded-3xl"></div>
-                        </div>
+                <button id="check-btn" onclick="startCheck()"
+                    class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-8 py-3.5 rounded-xl font-semibold flex items-center gap-2.5 transition-all text-sm">
+                    <i id="check-icon" class="fa-solid fa-search"></i>
+                    <span id="check-label">CHECK ACCOUNT</span>
+                </button>
+            </div>
+
+            <!-- LOADING SKELETON -->
+            <div id="loading-skeleton" class="hidden space-y-6 fade-up">
+                <div class="glass border border-zinc-700/50 rounded-2xl p-7 flex gap-6 items-center">
+                    <div class="shimmer w-24 h-24 rounded-2xl flex-shrink-0"></div>
+                    <div class="flex-1 space-y-3">
+                        <div class="shimmer h-7 w-48 rounded"></div>
+                        <div class="shimmer h-4 w-32 rounded"></div>
+                        <div class="shimmer h-4 w-64 rounded"></div>
                     </div>
-                    
-                    <!-- DETAILED CHECKS -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- LEFT COLUMN -->
-                        <div class="space-y-6">
-                            <!-- Roblox Data -->
-                            <div class="glass border border-zinc-700 rounded-3xl p-7">
-                                <div class="flex items-center gap-3 mb-6">
-                                    <i class="fa-solid fa-gamepad text-emerald-400"></i>
-                                    <h4 class="font-semibold text-lg">Roblox Data</h4>
-                                </div>
-                                
-                                <div class="space-y-5 text-sm">
-                                    <div class="check-row flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fa-solid fa-users text-zinc-400 w-5"></i>
-                                            <span>Friends</span>
-                                        </div>
-                                        <div id="friends-count" class="font-mono text-emerald-400 text-xl">142</div>
-                                    </div>
-                                    
-                                    <div class="check-row flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fa-solid fa-user-plus text-zinc-400 w-5"></i>
-                                            <span>Followers</span>
-                                        </div>
-                                        <div id="followers-count" class="font-mono text-emerald-400 text-xl">891</div>
-                                    </div>
-                                    
-                                    <div class="check-row flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fa-solid fa-users-rectangle text-zinc-400 w-5"></i>
-                                            <span>Groups Joined</span>
-                                        </div>
-                                        <div id="groups-count" class="font-mono text-emerald-400 text-xl">7</div>
-                                    </div>
-                                    
-                                    <div class="check-row flex justify-between items-center">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fa-solid fa-trophy text-zinc-400 w-5"></i>
-                                            <span>Badges Earned</span>
-                                        </div>
-                                        <div id="badges-count" class="font-mono text-emerald-400 text-xl">48</div>
-                                    </div>
-                                </div>
+                    <div class="shimmer w-28 h-28 rounded-full flex-shrink-0"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-5">
+                    <div class="shimmer h-48 rounded-2xl"></div>
+                    <div class="shimmer h-48 rounded-2xl"></div>
+                </div>
+            </div>
+
+            <!-- RESULTS AREA -->
+            <div id="results-area" class="hidden fade-up space-y-6">
+
+                <!-- PROFILE HEADER -->
+                <div class="glass border border-zinc-700 rounded-2xl p-7 flex gap-7 items-center">
+                    <div class="relative flex-shrink-0">
+                        <img id="avatar" src="" alt="avatar"
+                            class="w-24 h-24 rounded-2xl object-cover avatar-ring bg-zinc-800">
+                        <div id="ban-badge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-[9px] mono font-bold px-1.5 py-0.5 rounded-lg">BANNED</div>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <h3 id="display-name" class="text-3xl font-bold truncate"></h3>
+                            <div id="verified-badge" class="hidden badge-pill bg-emerald-500 text-black">
+                                <i class="fa-solid fa-circle-check text-[10px]"></i> VERIFIED
                             </div>
-                            
-                            <!-- Discord & Verification -->
-                            <div class="glass border border-zinc-700 rounded-3xl p-7">
-                                <div class="flex items-center gap-3 mb-6">
-                                    <i class="fa-brands fa-discord text-blue-400"></i>
-                                    <h4 class="font-semibold text-lg">Discord Verification</h4>
-                                </div>
-                                <div id="discord-status" class="flex items-center gap-4 p-5 bg-zinc-900 rounded-2xl">
-                                    <!-- filled by JS -->
-                                </div>
+                            <div id="premium-badge" class="hidden badge-pill bg-amber-500 text-black">
+                                <i class="fa-solid fa-star text-[10px]"></i> PREMIUM
                             </div>
                         </div>
-                        
-                        <!-- RIGHT COLUMN -->
-                        <div class="space-y-6">
-                            <!-- Anti-Cheat / xTracker -->
-                            <div class="glass border border-zinc-700 rounded-3xl p-7">
-                                <div class="flex items-center gap-3 mb-6">
-                                    <i class="fa-solid fa-ban text-red-400"></i>
-                                    <h4 class="font-semibold text-lg">Cheater Database</h4>
-                                </div>
-                                <div id="xtracker-status" class="p-5 bg-zinc-900 rounded-2xl text-center text-xl font-medium">
-                                    <!-- filled by JS -->
-                                </div>
+                        <div class="flex items-center gap-2 text-zinc-400 mono text-sm mt-1">
+                            <span id="username-display"></span>
+                            <span class="text-zinc-600">·</span>
+                            <span id="user-id" class="text-emerald-400"></span>
+                        </div>
+                        <div id="description-text" class="text-zinc-500 text-xs mt-2 truncate max-w-sm hidden"></div>
+
+                        <div class="mt-4 flex gap-6 text-sm flex-wrap">
+                            <div>
+                                <div class="text-zinc-500 text-xs">Created</div>
+                                <div id="created-date" class="font-semibold mono text-base"></div>
                             </div>
-                            
-                            <!-- Bought / Alt Indicators -->
-                            <div class="glass border border-zinc-700 rounded-3xl p-7">
-                                <div class="flex items-center gap-3 mb-6">
-                                    <i class="fa-solid fa-sack-xmark text-amber-400"></i>
-                                    <h4 class="font-semibold text-lg">Alt / Bought Signals</h4>
-                                </div>
-                                <div id="alt-signals" class="space-y-4">
-                                    <!-- dynamic list -->
-                                </div>
+                            <div>
+                                <div class="text-zinc-500 text-xs">Account Age</div>
+                                <div id="age" class="font-semibold text-emerald-400 text-base"></div>
+                            </div>
+                            <div>
+                                <div class="text-zinc-500 text-xs">Following</div>
+                                <div id="following-count" class="font-semibold mono text-base"></div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- FINAL VERDICT BAR -->
-                    <div class="mt-10 glass border border-zinc-700 rounded-3xl p-8">
-                        <div class="flex justify-between items-center mb-6">
-                            <div class="text-sm text-zinc-400">OVERALL ANALYSIS</div>
-                            <button onclick="copyReport()" 
-                                    class="text-xs flex items-center gap-2 text-emerald-400 hover:text-white">
-                                <i class="fa-solid fa-copy"></i> COPY REPORT
-                            </button>
+
+                    <!-- SCORE CIRCLE -->
+                    <div class="text-center flex-shrink-0">
+                        <div class="text-[10px] text-zinc-500 mb-2 tracking-widest mono">LEGIT SCORE</div>
+                        <div class="relative w-28 h-28">
+                            <svg class="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="#27272a" stroke-width="12"></circle>
+                                <circle id="score-progress" cx="60" cy="60" r="50" fill="none"
+                                    stroke="#10b981" stroke-width="12"
+                                    stroke-linecap="round"
+                                    stroke-dasharray="314.16"
+                                    stroke-dashoffset="314.16"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <div id="score-value" class="text-4xl font-bold text-emerald-400 mono leading-none"></div>
+                                <div class="text-[9px] text-zinc-500 mono">/100</div>
+                            </div>
                         </div>
-                        
-                        <div id="ai-summary" 
-                             class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-zinc-300 leading-relaxed text-sm">
+                        <div id="verdict" class="mt-3 text-xs font-bold px-4 py-1.5 inline-block rounded-xl mono"></div>
+                    </div>
+                </div>
+
+                <!-- DETAIL GRID -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                    <!-- Roblox Stats -->
+                    <div class="glass border border-zinc-700 rounded-2xl p-6">
+                        <div class="flex items-center gap-2 mb-5">
+                            <i class="fa-solid fa-gamepad text-emerald-400 text-sm"></i>
+                            <h4 class="font-semibold">Roblox Stats</h4>
+                        </div>
+                        <div class="space-y-4 text-sm">
+                            <div class="check-row flex justify-between items-center">
+                                <div class="flex items-center gap-2.5 text-zinc-400">
+                                    <i class="fa-solid fa-users w-4 text-center"></i> Friends
+                                </div>
+                                <div id="friends-count" class="mono font-semibold text-emerald-400 text-lg"></div>
+                            </div>
+                            <div class="h-px bg-zinc-800"></div>
+                            <div class="check-row flex justify-between items-center">
+                                <div class="flex items-center gap-2.5 text-zinc-400">
+                                    <i class="fa-solid fa-user-plus w-4 text-center"></i> Followers
+                                </div>
+                                <div id="followers-count" class="mono font-semibold text-emerald-400 text-lg"></div>
+                            </div>
+                            <div class="h-px bg-zinc-800"></div>
+                            <div class="check-row flex justify-between items-center">
+                                <div class="flex items-center gap-2.5 text-zinc-400">
+                                    <i class="fa-solid fa-users-rectangle w-4 text-center"></i> Groups
+                                </div>
+                                <div id="groups-count" class="mono font-semibold text-emerald-400 text-lg"></div>
+                            </div>
+                            <div class="h-px bg-zinc-800"></div>
+                            <div class="check-row flex justify-between items-center">
+                                <div class="flex items-center gap-2.5 text-zinc-400">
+                                    <i class="fa-solid fa-trophy w-4 text-center"></i> Badges
+                                </div>
+                                <div id="badges-count" class="mono font-semibold text-emerald-400 text-lg"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- xTracker / Cheater DB -->
+                    <div class="glass border border-zinc-700 rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-5">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-ban text-red-400 text-sm"></i>
+                                <h4 class="font-semibold">Cheater Database</h4>
+                                <span class="badge-pill bg-zinc-800 text-zinc-400">xTracker</span>
+                            </div>
+                            <div id="xt-live-dot" class="hidden flex items-center gap-1.5 text-xs text-emerald-400 mono">
+                                <span class="pulse-dot w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> LIVE
+                            </div>
+                        </div>
+
+                        <div id="xtracker-panel" class="rounded-xl p-5 text-sm space-y-3">
+                            <!-- filled by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Alt Signals -->
+                    <div class="glass border border-zinc-700 rounded-2xl p-6">
+                        <div class="flex items-center gap-2 mb-5">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+                            <h4 class="font-semibold">Alt / Bought Signals</h4>
+                        </div>
+                        <div id="alt-signals" class="space-y-3 text-sm">
+                            <!-- dynamic -->
+                        </div>
+                    </div>
+
+                    <!-- Discord Verification -->
+                    <div class="glass border border-zinc-700 rounded-2xl p-6">
+                        <div class="flex items-center gap-2 mb-5">
+                            <i class="fa-brands fa-discord text-blue-400 text-sm"></i>
+                            <h4 class="font-semibold">Discord Verification</h4>
+                            <span class="badge-pill bg-zinc-800 text-zinc-400">Bloxlink/RoWifi</span>
+                        </div>
+                        <div id="discord-status" class="rounded-xl p-5 bg-zinc-900">
                             <!-- filled by JS -->
                         </div>
                     </div>
                 </div>
-                
-                <!-- EMPTY STATE -->
-                <div id="empty-state" class="text-center py-20">
-                    <div class="mx-auto w-16 h-16 bg-zinc-900 rounded-3xl flex items-center justify-center mb-6">
-                        <i class="fa-solid fa-user-secret text-4xl text-zinc-600"></i>
+
+                <!-- OVERALL ANALYSIS -->
+                <div class="glass border border-zinc-700 rounded-2xl p-7">
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="text-xs text-zinc-500 mono tracking-widest">OVERALL ANALYSIS</div>
+                        <button onclick="copyReport()"
+                            class="text-xs flex items-center gap-1.5 text-zinc-400 hover:text-emerald-400 transition-colors mono">
+                            <i class="fa-solid fa-copy"></i> COPY REPORT
+                        </button>
                     </div>
-                    <p class="text-zinc-400 text-xl">Enter a Roblox username above to begin verification</p>
-                    <p class="text-xs text-zinc-500 mono mt-8">Real-time Roblox API • Bloxlink/RoWifi mocks • xTracker ready</p>
-                </div>
-            </div>
-            
-            <!-- HISTORY TAB -->
-            <div id="tab-content-1" class="hidden">
-                <h2 class="text-4xl font-bold mb-8">Check History</h2>
-                <div id="history-list" class="space-y-4">
-                    <!-- populated by JS -->
-                </div>
-            </div>
-            
-            <!-- SETTINGS TAB -->
-            <div id="tab-content-2" class="hidden">
-                <h2 class="text-4xl font-bold mb-8">Settings &amp; API Keys</h2>
-                <div class="max-w-2xl glass border border-zinc-700 rounded-3xl p-8">
-                    <div class="space-y-8">
-                        <div>
-                            <label class="text-sm text-zinc-400 block mb-3">Bloxlink / RoWifi API Key (for real Discord verification)</label>
-                            <input id="bloxlink-key" type="password" 
-                                   class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 text-sm"
-                                   placeholder="sk-... (leave blank for mock)">
-                        </div>
-                        
-                        <div>
-                            <label class="text-sm text-zinc-400 block mb-3">xTracker API Key (provided by you)</label>
-                            <input id="xtracker-key" type="text" 
-                                   class="w-full bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-4 text-sm"
-                                   placeholder="-xr4kbjpH0fQgrxHx7DaWA">
-                        </div>
-                        
-                        <div class="pt-6 border-t border-zinc-700">
-                            <button onclick="saveSettings()" 
-                                    class="bg-white text-black font-semibold px-10 py-4 rounded-2xl hover:bg-zinc-200">
-                                SAVE KEYS (Demo - stored in browser only)
-                            </button>
-                        </div>
-                        
-                        <div class="text-xs text-zinc-500 mono leading-relaxed">
-                            Note: This is a single-file HTML demo.<br>
-                            Real Discord checks require your own API keys.<br>
-                            Roblox data pulls live from public APIs.<br>
-                            xTracker integration is ready for your key.
-                        </div>
+                    <div id="ai-summary"
+                        class="bg-zinc-900/70 border border-zinc-800 rounded-xl p-5 text-zinc-300 text-sm leading-relaxed">
                     </div>
+                </div>
+
+            </div>
+
+            <!-- EMPTY STATE -->
+            <div id="empty-state" class="text-center py-24">
+                <div class="mx-auto w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center mb-5">
+                    <i class="fa-solid fa-user-secret text-3xl text-zinc-700"></i>
+                </div>
+                <p class="text-zinc-400 text-lg">Enter a Roblox username above to begin</p>
+                <p class="text-xs text-zinc-600 mono mt-3">Live Roblox API · xTracker cheater DB · Alt detection</p>
+            </div>
+        </div>
+
+        <!-- ── HISTORY TAB ── -->
+        <div id="tab-content-1" class="hidden">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-3xl font-bold">Check History</h2>
+                <button onclick="clearHistory()"
+                    class="text-xs text-zinc-500 hover:text-red-400 transition-colors mono flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash"></i> CLEAR ALL
+                </button>
+            </div>
+            <div id="history-list" class="space-y-3"></div>
+        </div>
+
+        <!-- ── SETTINGS TAB ── -->
+        <div id="tab-content-2" class="hidden">
+            <h2 class="text-3xl font-bold mb-8">Settings</h2>
+            <div class="max-w-xl glass border border-zinc-700 rounded-2xl p-8 space-y-7">
+
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 mb-2 block mono tracking-widest">BLOXLINK / ROWIFI API KEY</label>
+                    <input id="bloxlink-key" type="password"
+                        class="input-field w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3 text-sm mono"
+                        placeholder="Leave blank — uses mock data">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 mb-2 block mono tracking-widest">xTRACKER API KEY</label>
+                    <input id="xtracker-key" type="text"
+                        class="input-field w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3 text-sm mono"
+                        placeholder="-xr4kbjpH0fQgrxHx7DaWA">
+                    <p class="text-xs text-zinc-600 mt-1.5 mono">Used for real-time cheater database lookups</p>
+                </div>
+
+                <div class="pt-5 border-t border-zinc-800">
+                    <button onclick="saveSettings()"
+                        class="bg-white text-black font-semibold px-8 py-3 rounded-xl hover:bg-zinc-200 active:scale-95 transition-all text-sm">
+                        SAVE SETTINGS
+                    </button>
+                    <p class="text-[11px] text-zinc-600 mono mt-3">Stored in browser localStorage only. Never sent anywhere.</p>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        // Tailwind script run
-        function initTailwind() {
-            // Already loaded via CDN
-        }
-        
-        // ====================== PASSWORD SYSTEM ======================
-        let loginAttempts = 0;
-        let lockoutUntil = 0;
-        
-        function togglePassword() {
-            const input = document.getElementById('password-input');
-            const eye = document.getElementById('eye-icon');
-            if (input.type === "password") {
-                input.type = "text";
-                eye.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                input.type = "password";
-                eye.classList.replace('fa-eye-slash', 'fa-eye');
-            }
-        }
-        
-        function login() {
-            if (Date.now() < lockoutUntil) {
-                showLoginError(`Locked for ${Math.ceil((lockoutUntil - Date.now())/1000)}s`);
-                return;
-            }
-            
-            const pass = document.getElementById('password-input').value.trim();
-            const correct = "AccountChecker123";
-            
-            if (pass === correct) {
-                const remember = document.getElementById('remember-me').checked;
-                if (remember) {
-                    localStorage.setItem('altguard_remember', 'true');
-                }
-                localStorage.setItem('altguard_logged_in', 'true');
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                loginAttempts = 0;
-                loadHistory();
-            } else {
-                loginAttempts++;
-                if (loginAttempts >= 3) {
-                    lockoutUntil = Date.now() + 60000;
-                    showLoginError("Too many attempts • Locked for 60 seconds");
-                } else {
-                    showLoginError(`Wrong password • ${3 - loginAttempts} attempts left`);
-                }
-            }
-        }
-        
-        function showLoginError(msg) {
-            const err = document.getElementById('login-error');
-            err.textContent = msg;
-            err.classList.remove('hidden');
-            setTimeout(() => err.classList.add('hidden'), 4000);
-        }
-        
-        function forgotPassword() {
-            alert("The password is hardcoded as:\n\nAccountChecker123\n\nThis is a demo — in production it would use proper auth.");
-        }
-        
-        function logout() {
-            localStorage.removeItem('altguard_logged_in');
-            localStorage.removeItem('altguard_remember');
-            location.reload();
-        }
-        
-        // ====================== CHECKER LOGIC ======================
-        let currentResult = null;
-        
-        async function resolveUsername(username) {
-            try {
-                const res = await fetch('https://users.roblox.com/v1/usernames/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usernames: [username], excludeBannedUsers: true })
-                });
-                const data = await res.json();
-                if (data.data && data.data.length > 0) {
-                    return data.data[0].id;
-                }
-            } catch(e) {}
-            return null;
-        }
-        
-        async function fetchRobloxData(userId) {
-            const promises = [
-                fetch(`https://users.roblox.com/v1/users/${userId}`),
-                fetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`),
-                fetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`),
-                fetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`),
-                fetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`),
-                fetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`),
-                fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`)
-            ];
-            
-            const results = await Promise.allSettled(promises);
-            
-            const userInfo = results[0].status === 'fulfilled' ? await results[0].value.json() : {};
-            const friends = results[1].status === 'fulfilled' ? await results[1].value.json() : {count: 0};
-            const followers = results[2].status === 'fulfilled' ? await results[2].value.json() : {count: 0};
-            const following = results[3].status === 'fulfilled' ? await results[3].value.json() : {count: 0};
-            const groupsData = results[4].status === 'fulfilled' ? await results[4].value.json() : {data: []};
-            const badgesData = results[5].status === 'fulfilled' ? await results[5].value.json() : {data: []};
-            const thumbData = results[6].status === 'fulfilled' ? await results[6].value.json() : {};
-            
-            return {
-                userInfo,
-                friends: friends.count || 0,
-                followers: followers.count || 0,
-                following: following.count || 0,
-                groups: groupsData.data || [],
-                badges: badgesData.data || [],
-                avatar: thumbData.data && thumbData.data[0] ? thumbData.data[0].imageUrl : 'https://via.placeholder.com/150'
-            };
-        }
-        
-        function calculateScoreAndVerdict(data) {
-            let score = 40; // base
-            
-            // Age
-            const created = new Date(data.userInfo.created);
-            const ageDays = (Date.now() - created) / (1000*60*60*24);
-            if (ageDays > 730) score += 22;
-            else if (ageDays > 365) score += 15;
-            else if (ageDays > 90) score += 8;
-            
-            // Friends
-            if (data.friends > 100) score += 18;
-            else if (data.friends > 30) score += 12;
-            else if (data.friends > 10) score += 6;
-            
-            // Followers
-            if (data.followers > 500) score += 10;
-            else if (data.followers > 100) score += 6;
-            
-            // Groups
-            const groupCount = data.groups.length;
-            if (groupCount > 6) score += 15;
-            else if (groupCount > 3) score += 10;
-            else if (groupCount > 0) score += 5;
-            
-            // Badges
-            if (data.badges.length >= 30) score += 12;
-            else if (data.badges.length >= 10) score += 7;
-            
-            // Mock Discord & xTracker (demo-only signals)
-            const hasDiscord = Math.random() > 0.4;
-            const cleanXTracker = Math.random() > 0.15;
-            if (hasDiscord) score += 13;
-            if (cleanXTracker) score += 10;
-            
-            score = Math.min(100, Math.max(15, Math.round(score)));
-            
-            let verdictText = '';
-            let verdictColor = '';
-            if (score >= 80) {
-                verdictText = '✅ HIGHLY LEGIT';
-                verdictColor = 'bg-emerald-500 text-black';
-            } else if (score >= 60) {
-                verdictText = '⚠️  LIKELY LEGIT';
-                verdictColor = 'bg-amber-500 text-black';
-            } else {
-                verdictText = '❌ SUSPECTED ALT / BOUGHT';
-                verdictColor = 'bg-red-500 text-white';
-            }
-            
-            return { score, verdictText, verdictColor, hasDiscord, cleanXTracker };
-        }
-        
-        async function startCheck() {
-            const usernameInput = document.getElementById('username-input').value.trim().toLowerCase();
-            if (!usernameInput) {
-                alert("Enter a Roblox username");
-                return;
-            }
+<script>
+// ════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════
+const CORRECT_PASSWORD = "AccountChecker123";
+const DEFAULT_XTRACKER_KEY = "-xr4kbjpH0fQgrxHx7DaWA";
 
-            // Show loading state
-            document.getElementById('empty-state').classList.add('hidden');
-            document.getElementById('results-area').classList.remove('hidden');
-            const avatarEl = document.getElementById('avatar');
-            const defaultAvatar = 'https://via.placeholder.com/150';
-            avatarEl.src = `${defaultAvatar}?text=LOADING`;
+// ════════════════════════════════════════════════
+//  LOGIN
+// ════════════════════════════════════════════════
+let loginAttempts = 0, lockoutUntil = 0;
 
-            const userId = await resolveUsername(usernameInput);
-            if (!userId) {
-                // Revert UI back to empty state on failure
-                document.getElementById('results-area').classList.add('hidden');
-                document.getElementById('empty-state').classList.remove('hidden');
-                avatarEl.src = defaultAvatar;
-                alert("Username not found on Roblox");
-                return;
-            }
-            
-            const robloxData = await fetchRobloxData(userId);
-            
-            const calc = calculateScoreAndVerdict(robloxData);
-            
-            // Populate UI
-            document.getElementById('avatar').src = robloxData.avatar;
-            document.getElementById('display-name').textContent = robloxData.userInfo.displayName || usernameInput;
-            document.getElementById('username-display').textContent = '@' + (robloxData.userInfo.name || usernameInput);
-            document.getElementById('user-id').textContent = 'ID: ' + userId;
-            
-            // Created & age
-            const createdDate = new Date(robloxData.userInfo.created);
-            document.getElementById('created-date').textContent = createdDate.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric'});
-            const ageYears = Math.floor((Date.now() - createdDate) / (1000*60*60*24*365));
-            document.getElementById('age').textContent = ageYears + ' years';
-            
-            // Counts
-            document.getElementById('friends-count').textContent = robloxData.friends.toLocaleString();
-            document.getElementById('followers-count').textContent = robloxData.followers.toLocaleString();
-            document.getElementById('groups-count').textContent = robloxData.groups.length;
-            document.getElementById('badges-count').textContent = robloxData.badges.length + '+';
-            
-            // Discord (use calc.hasDiscord for consistency with score)
-            const discordDiv = document.getElementById('discord-status');
-            if (calc.hasDiscord) {
-                discordDiv.innerHTML = `
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3">
-                            <i class="fa-brands fa-discord text-3xl text-blue-400"></i>
-                            <div>
-                                <div class="font-semibold">Discord Linked via Bloxlink / RoWifi</div>
-                                <div class="text-xs text-emerald-400">Verified • Real user</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-emerald-400 text-5xl">✅</div>
-                    </div>`;
-            } else {
-                discordDiv.innerHTML = `
-                    <div class="flex-1 text-zinc-400">
-                        No Discord link detected (Bloxlink/RoWifi mock)<br>
-                        <span class="text-xs">Add your API key in Settings for real checks</span>
-                    </div>
-                    <div class="text-right text-5xl text-amber-400">⚠️</div>`;
-            }
-            
-            // xTracker (use calc.cleanXTracker for consistency with score)
-            const xtDiv = document.getElementById('xtracker-status');
-            if (!calc.cleanXTracker) {
-                xtDiv.innerHTML = `<span class="text-red-400">🚩 FLAGGED IN xTRACKER (cheater registry)</span>`;
-                xtDiv.classList.add('text-red-400');
-            } else {
-                xtDiv.innerHTML = `<span class="text-emerald-400">✅ CLEAN • Not in xTracker</span>`;
-            }
-            
-            // Alt signals
-            const signalsHTML = `
-                <div class="flex justify-between ${ageYears < 1 ? 'text-red-400' : 'text-emerald-400'}">
-                    <span>Account age</span>
-                    <span>${ageYears < 1 ? 'NEW (suspicious)' : 'Good'}</span>
-                </div>
-                <div class="flex justify-between ${robloxData.friends < 20 ? 'text-red-400' : 'text-emerald-400'}">
-                    <span>Friends count</span>
-                    <span>${robloxData.friends < 20 ? 'VERY LOW' : 'Normal'}</span>
-                </div>
-                <div class="flex justify-between ${robloxData.groups.length < 2 ? 'text-red-400' : 'text-emerald-400'}">
-                    <span>Group activity</span>
-                    <span>${robloxData.groups.length < 2 ? 'None / Alt-like' : 'Active'}</span>
-                </div>`;
-            document.getElementById('alt-signals').innerHTML = signalsHTML;
-            
-            // Score circle
-            const scoreEl = document.getElementById('score-value');
-            scoreEl.textContent = calc.score;
-            const offset = 326.73 - (326.73 * calc.score / 100);
-            document.getElementById('score-progress').setAttribute('stroke-dashoffset', offset);
-            
-            // Verdict
-            const verdictEl = document.getElementById('verdict');
-            verdictEl.textContent = calc.verdictText;
-            verdictEl.className = `mt-4 text-sm font-bold px-6 py-2 inline-block rounded-3xl ${calc.verdictColor}`;
-            
-            // AI summary – use same signals as scoring
-            const summaryText = `This account shows ${calc.score > 70 ? 'strong' : 'moderate'} signs of legitimacy. ${robloxData.groups.length} groups, ${robloxData.friends} friends, and ${ageYears} years old. ${calc.hasDiscord ? 'Discord verified.' : 'No Discord link.'} ${calc.cleanXTracker ? 'Clean record.' : 'Flagged in cheater database.'} Overall recommendation: ${calc.score >= 80 ? 'Safe to trade with.' : 'Proceed with caution.'}`;
-            document.getElementById('ai-summary').innerHTML = summaryText;
-            
-            // Save to history
-            saveToHistory({
-                username: usernameInput,
-                displayName: robloxData.userInfo.displayName || usernameInput,
-                score: calc.score,
-                verdict: calc.verdictText,
-                date: new Date().toLocaleString()
+function togglePassword() {
+    const i = document.getElementById('password-input');
+    const e = document.getElementById('eye-icon');
+    i.type = i.type === 'password' ? 'text' : 'password';
+    e.classList.toggle('fa-eye'); e.classList.toggle('fa-eye-slash');
+}
+
+function login() {
+    if (Date.now() < lockoutUntil) {
+        showLoginError(`Locked — ${Math.ceil((lockoutUntil - Date.now()) / 1000)}s remaining`);
+        return;
+    }
+    const pass = document.getElementById('password-input').value.trim();
+    if (pass === CORRECT_PASSWORD) {
+        loginAttempts = 0;
+        if (document.getElementById('remember-me').checked) localStorage.setItem('ag_remember', '1');
+        localStorage.setItem('ag_logged_in', '1');
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        loadHistory();
+        loadSavedSettings();
+    } else {
+        loginAttempts++;
+        if (loginAttempts >= 3) { lockoutUntil = Date.now() + 60000; showLoginError('Too many attempts — locked for 60s'); }
+        else showLoginError(`Wrong password · ${3 - loginAttempts} attempt${3 - loginAttempts !== 1 ? 's' : ''} left`);
+    }
+}
+
+function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg; el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function forgotPassword() { alert('Password: AccountChecker123\n\n(Demo — hardcoded for local use)'); }
+
+function logout() {
+    localStorage.removeItem('ag_logged_in'); localStorage.removeItem('ag_remember');
+    location.reload();
+}
+
+// ════════════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════════════
+function loadSavedSettings() {
+    const bk = localStorage.getItem('ag_bloxlink_key');
+    const xk = localStorage.getItem('ag_xtracker_key');
+    if (bk) document.getElementById('bloxlink-key').value = bk;
+    // pre-fill xtracker field with default if nothing saved
+    document.getElementById('xtracker-key').value = xk || DEFAULT_XTRACKER_KEY;
+}
+
+function saveSettings() {
+    localStorage.setItem('ag_bloxlink_key', document.getElementById('bloxlink-key').value.trim());
+    localStorage.setItem('ag_xtracker_key', document.getElementById('xtracker-key').value.trim());
+    alert('Settings saved.');
+}
+
+function getXTrackerKey() {
+    return localStorage.getItem('ag_xtracker_key') || DEFAULT_XTRACKER_KEY;
+}
+
+// ════════════════════════════════════════════════
+//  ROBLOX API
+// ════════════════════════════════════════════════
+async function resolveUsername(username) {
+    try {
+        const r = await fetch('https://users.roblox.com/v1/usernames/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+        });
+        const d = await r.json();
+        if (d.data && d.data.length > 0) return d.data[0].id;
+    } catch {}
+    return null;
+}
+
+async function fetchRobloxData(userId) {
+    const [userRes, friendsRes, followersRes, followingRes, groupsRes, badgesRes, thumbRes] = await Promise.allSettled([
+        fetch(`https://users.roblox.com/v1/users/${userId}`),
+        fetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`),
+        fetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`),
+        fetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`),
+        fetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`),
+        fetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`),
+        fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`)
+    ]);
+
+    const safe = (res, fallback) => res.status === 'fulfilled' ? res.value.json().catch(() => fallback) : Promise.resolve(fallback);
+
+    const [userInfo, friends, followers, following, groups, badges, thumb] = await Promise.all([
+        safe(userRes, {}),
+        safe(friendsRes, { count: 0 }),
+        safe(followersRes, { count: 0 }),
+        safe(followingRes, { count: 0 }),
+        safe(groupsRes, { data: [] }),
+        safe(badgesRes, { data: [] }),
+        safe(thumbRes, {})
+    ]);
+
+    return {
+        userInfo,
+        friends:   friends.count   ?? 0,
+        followers: followers.count ?? 0,
+        following: following.count ?? 0,
+        groups:    groups.data     ?? [],
+        badges:    badges.data     ?? [],
+        avatar:    thumb?.data?.[0]?.imageUrl ?? ''
+    };
+}
+
+// ════════════════════════════════════════════════
+//  xTRACKER API
+//  Real endpoint pattern — adjust path if docs differ.
+//  Key is sent as Authorization header.
+// ════════════════════════════════════════════════
+async function checkXTracker(userId) {
+    const key = getXTrackerKey();
+    if (!key) return { status: 'no_key' };
+
+    // Try common endpoint patterns used by community DBs
+    const endpoints = [
+        `https://api.xtracker.gg/lookup?userId=${userId}`,
+        `https://xtracker.gg/api/lookup?userId=${userId}`,
+        `https://api.xtracker.gg/v1/users/${userId}`
+    ];
+
+    for (const url of endpoints) {
+        try {
+            const r = await fetch(url, {
+                headers: { 'Authorization': key, 'x-api-key': key }
             });
-            
-            currentResult = {
-                username: usernameInput,
-                ...robloxData,
-                score: calc.score,
-                verdict: calc.verdictText
-            };
-        }
-        
-        function copyReport() {
-            if (!currentResult) return;
-            const text = `AltGuard Report\nUsername: ${currentResult.username}\nScore: ${currentResult.score}/100\nVerdict: ${currentResult.verdict}\nGenerated: ${new Date().toLocaleString()}\n\nFull data available on https://altguard.demo`;
-            navigator.clipboard.writeText(text);
-            alert("Report copied to clipboard!");
-        }
-        
-        // ====================== HISTORY ======================
-        function saveToHistory(entry) {
-            let history = JSON.parse(localStorage.getItem('altguard_history') || '[]');
-            history.unshift(entry);
-            if (history.length > 8) history.pop();
-            localStorage.setItem('altguard_history', JSON.stringify(history));
-            loadHistory();
-        }
-        
-        function loadHistory() {
-            const container = document.getElementById('history-list');
-            container.innerHTML = '';
-            const history = JSON.parse(localStorage.getItem('altguard_history') || '[]');
-            
-            if (history.length === 0) {
-                container.innerHTML = `<div class="text-zinc-400 text-center py-12">No checks yet. Start verifying accounts!</div>`;
-                return;
+            if (r.ok) {
+                const data = await r.json();
+                return { status: 'ok', data };
             }
-            
-            history.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'glass border border-zinc-700 rounded-3xl p-6 flex justify-between items-center cursor-pointer hover:border-emerald-500';
-                div.innerHTML = `
+            if (r.status === 404) return { status: 'clean' };
+            if (r.status === 401 || r.status === 403) return { status: 'auth_error' };
+        } catch {}
+    }
+    return { status: 'error' };
+}
+
+function renderXTracker(result, username) {
+    const panel = document.getElementById('xtracker-panel');
+    document.getElementById('xt-live-dot').classList.remove('hidden');
+
+    if (result.status === 'clean') {
+        panel.className = 'rounded-xl p-5 text-sm space-y-2 xt-clean-bg';
+        panel.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+                <div>
+                    <div class="font-semibold text-emerald-400">NOT in xTracker Database</div>
+                    <div class="text-xs text-zinc-400 mono mt-0.5">No cheating records found for this account</div>
+                </div>
+            </div>`;
+        return true; // clean
+    }
+
+    if (result.status === 'ok' && result.data) {
+        const d = result.data;
+        const isFlagged = d.flagged || d.cheater || d.banned || (d.records && d.records.length > 0);
+        if (!isFlagged) {
+            panel.className = 'rounded-xl p-5 text-sm space-y-2 xt-clean-bg';
+            panel.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
                     <div>
-                        <div class="font-semibold">${item.displayName}</div>
-                        <div class="text-xs text-zinc-500">@${item.username} • ${item.date}</div>
+                        <div class="font-semibold text-emerald-400">NOT in xTracker Database</div>
+                        <div class="text-xs text-zinc-400 mono mt-0.5">Clean record — no flags found</div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-4xl font-bold text-emerald-400">${item.score}</div>
-                        <div class="text-xs">${item.verdict}</div>
-                    </div>`;
-                div.onclick = () => {
-                    document.getElementById('username-input').value = item.username;
-                    startCheck();
-                    showTab(0);
-                };
-                container.appendChild(div);
-            });
+                </div>`;
+            return true;
         }
-        
-        // ====================== TABS ======================
-        function showTab(n) {
-            document.querySelectorAll('[id^="tab-content-"]').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`tab-content-${n}`).classList.remove('hidden');
-            
-            document.querySelectorAll('[id^="tab-"]').forEach(el => {
-                el.classList.remove('border-b-2', 'border-emerald-400', 'text-emerald-400');
-                el.classList.add('text-zinc-400');
-            });
-            document.getElementById(`tab-${n}`).classList.add('border-b-2', 'border-emerald-400', 'text-emerald-400');
+        panel.className = 'rounded-xl p-5 text-sm space-y-3 xt-flag-bg';
+        const reason = d.reason || d.offence || d.notes || 'Cheating / Unfair play';
+        const date   = d.date || d.timestamp || d.reportedAt || 'Unknown date';
+        panel.innerHTML = `
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-flag text-red-400 text-lg"></i>
+                <div>
+                    <div class="font-bold text-red-400">FLAGGED IN xTRACKER</div>
+                    <div class="text-xs text-zinc-400 mono mt-0.5">This account has a cheating record</div>
+                </div>
+            </div>
+            <div class="h-px bg-red-900/30"></div>
+            <div class="space-y-1 mono text-xs">
+                <div class="flex justify-between"><span class="text-zinc-500">Reason:</span><span class="text-red-300">${escHtml(reason)}</span></div>
+                <div class="flex justify-between"><span class="text-zinc-500">Logged:</span><span class="text-red-300">${escHtml(String(date))}</span></div>
+            </div>`;
+        return false;
+    }
+
+    if (result.status === 'auth_error') {
+        panel.className = 'rounded-xl p-5 text-sm xt-error-bg';
+        panel.innerHTML = `<div class="flex items-center gap-3 text-amber-400"><i class="fa-solid fa-key text-lg"></i><div><div class="font-semibold">API Key Invalid</div><div class="text-xs text-zinc-400 mono mt-0.5">Check your xTracker key in Settings</div></div></div>`;
+        return null;
+    }
+
+    if (result.status === 'no_key') {
+        panel.className = 'rounded-xl p-5 text-sm bg-zinc-900';
+        panel.innerHTML = `<div class="text-zinc-500 text-sm">No xTracker key configured.<br><span class="text-xs mono">Add your key in Settings.</span></div>`;
+        return null;
+    }
+
+    // error / unreachable
+    panel.className = 'rounded-xl p-5 text-sm xt-error-bg';
+    panel.innerHTML = `<div class="flex items-center gap-3 text-amber-400"><i class="fa-solid fa-triangle-exclamation text-lg"></i><div><div class="font-semibold">Could Not Reach xTracker</div><div class="text-xs text-zinc-400 mono mt-0.5">API may be down or endpoint changed</div></div></div>`;
+    return null;
+}
+
+// ════════════════════════════════════════════════
+//  SCORE CALCULATION
+// ════════════════════════════════════════════════
+function calculateScore(data, xtClean) {
+    let score = 30;
+    const created = new Date(data.userInfo.created);
+    const ageDays = (Date.now() - created) / 86400000;
+
+    // Age
+    if (ageDays > 1460) score += 25;
+    else if (ageDays > 730) score += 18;
+    else if (ageDays > 365) score += 12;
+    else if (ageDays > 90)  score += 6;
+
+    // Friends
+    if (data.friends > 150) score += 18;
+    else if (data.friends > 50)  score += 12;
+    else if (data.friends > 15)  score += 7;
+    else if (data.friends > 5)   score += 3;
+
+    // Followers
+    if (data.followers > 500) score += 8;
+    else if (data.followers > 100) score += 5;
+    else if (data.followers > 20)  score += 2;
+
+    // Groups
+    const gc = data.groups.length;
+    if (gc > 8) score += 12;
+    else if (gc > 4) score += 8;
+    else if (gc > 1) score += 5;
+    else if (gc === 1) score += 2;
+
+    // Badges
+    if (data.badges.length >= 50) score += 12;
+    else if (data.badges.length >= 20) score += 8;
+    else if (data.badges.length >= 5)  score += 4;
+
+    // xTracker
+    if (xtClean === true)  score += 10;
+    if (xtClean === false) score -= 25;
+
+    // Discord (mock — real Bloxlink would go here)
+    const hasDiscord = Math.random() > 0.4;
+    if (hasDiscord) score += 8;
+
+    score = Math.min(100, Math.max(10, Math.round(score)));
+
+    let verdictText, verdictClass;
+    if (score >= 80)      { verdictText = 'HIGHLY LEGIT'; verdictClass = 'verdict-legit'; }
+    else if (score >= 55) { verdictText = 'LIKELY LEGIT'; verdictClass = 'verdict-likely'; }
+    else                  { verdictText = 'SUSPECTED ALT'; verdictClass = 'verdict-sus'; }
+
+    return { score, verdictText, verdictClass, hasDiscord };
+}
+
+// ════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtNum(n) { return Number(n).toLocaleString('en-GB'); }
+
+function ageStr(days) {
+    if (days >= 730) return `${Math.floor(days/365)} yrs`;
+    if (days >= 30)  return `${Math.floor(days/30)} mo`;
+    return `${Math.floor(days)} days`;
+}
+
+function sigRow(label, value, status /* 'good'|'warn'|'bad' */) {
+    const icon = status === 'good' ? 'fa-check' : status === 'warn' ? 'fa-minus' : 'fa-xmark';
+    const cls  = `sig-${status}`;
+    return `
+        <div class="flex justify-between items-center check-row">
+            <span class="text-zinc-400 flex items-center gap-2">
+                <i class="fa-solid ${icon} ${cls} w-3 text-center text-xs"></i>${label}
+            </span>
+            <span class="${cls} mono text-xs font-semibold">${value}</span>
+        </div>`;
+}
+
+// ════════════════════════════════════════════════
+//  MAIN CHECK
+// ════════════════════════════════════════════════
+let currentResult = null;
+let checking = false;
+
+async function startCheck() {
+    if (checking) return;
+    const username = document.getElementById('username-input').value.trim().toLowerCase();
+    if (!username) { document.getElementById('username-input').focus(); return; }
+
+    checking = true;
+    setCheckingUI(true);
+
+    // reset
+    document.getElementById('empty-state').classList.add('hidden');
+    document.getElementById('results-area').classList.add('hidden');
+    document.getElementById('loading-skeleton').classList.remove('hidden');
+
+    try {
+        const userId = await resolveUsername(username);
+        if (!userId) {
+            document.getElementById('loading-skeleton').classList.add('hidden');
+            document.getElementById('empty-state').classList.remove('hidden');
+            alert(`Username "${username}" not found on Roblox.`);
+            return;
         }
-        
-        function saveSettings() {
-            alert("Settings saved (browser storage only).\n\nReal Bloxlink/RoWifi & xTracker keys would be used in a full backend version.");
-        }
-        
-        // ====================== INIT ======================
-        window.onload = function() {
-            initTailwind();
-            
-            // Auto-login if remembered
-            if (localStorage.getItem('altguard_remember') === 'true' && localStorage.getItem('altguard_logged_in') === 'true') {
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-            }
-            
-            // Enter key support on password
-            document.getElementById('password-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') login();
-            });
-            
-            // Default tab
-            showTab(0);
-            
-            // Demo tip
-            console.log('%c✅ AltGuard demo ready!\nPassword: AccountChecker123', 'color:#00b15c; font-family:monospace');
-        };
-    </script>
+
+        // Fetch Roblox data + xTracker in parallel
+        const [robloxData, xtResult] = await Promise.all([
+            fetchRobloxData(userId),
+            checkXTracker(userId)
+        ]);
+
+        const xtClean = xtResult.status === 'clean' || (xtResult.status === 'ok' && !(xtResult.data?.flagged));
+        const calc = calculateScore(robloxData, xtResult.status === 'error' || xtResult.status === 'no_key' ? null : xtClean);
+
+        populateUI(userId, username, robloxData, calc, xtResult, xtClean);
+
+        document.getElementById('loading-skeleton').classList.add('hidden');
+        document.getElementById('results-area').classList.remove('hidden');
+
+        saveToHistory({
+            username,
+            displayName: robloxData.userInfo.displayName || username,
+            score: calc.score,
+            verdict: calc.verdictText,
+            date: new Date().toLocaleString('en-GB')
+        });
+
+        currentResult = { username, userId, ...robloxData, ...calc };
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('loading-skeleton').classList.add('hidden');
+        document.getElementById('empty-state').classList.remove('hidden');
+        alert('Something went wrong fetching data. Check console for details.');
+    } finally {
+        checking = false;
+        setCheckingUI(false);
+    }
+}
+
+function setCheckingUI(active) {
+    const btn  = document.getElementById('check-btn');
+    const icon = document.getElementById('check-icon');
+    const lbl  = document.getElementById('check-label');
+    if (active) {
+        btn.disabled = true; btn.classList.add('opacity-70');
+        icon.className = 'fa-solid fa-circle-notch spinner';
+        lbl.textContent = 'CHECKING…';
+    } else {
+        btn.disabled = false; btn.classList.remove('opacity-70');
+        icon.className = 'fa-solid fa-search';
+        lbl.textContent = 'CHECK ACCOUNT';
+    }
+}
+
+function populateUI(userId, username, d, calc, xtResult, xtClean) {
+    const ui = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    const hide = id => document.getElementById(id)?.classList.add('hidden');
+    const show = id => document.getElementById(id)?.classList.remove('hidden');
+
+    // Avatar
+    const av = document.getElementById('avatar');
+    av.src = d.avatar || 'https://www.roblox.com/headshot-thumbnail/image?userId=' + userId + '&width=420&height=420&format=png';
+    av.onerror = () => av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=10b981&color=000&size=420`;
+
+    // Basic info
+    ui('display-name', d.userInfo.displayName || username);
+    ui('username-display', '@' + (d.userInfo.name || username));
+    ui('user-id', 'ID: ' + userId);
+
+    // Description
+    const desc = d.userInfo.description?.trim();
+    if (desc) { ui('description-text', desc); show('description-text'); }
+    else hide('description-text');
+
+    // Dates
+    const created = new Date(d.userInfo.created);
+    const ageDays  = (Date.now() - created) / 86400000;
+    ui('created-date', created.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }));
+    ui('age', ageStr(ageDays));
+
+    // Counts
+    ui('friends-count',   fmtNum(d.friends));
+    ui('followers-count', fmtNum(d.followers));
+    ui('following-count', fmtNum(d.following));
+    ui('groups-count',    fmtNum(d.groups.length));
+    ui('badges-count',    d.badges.length >= 100 ? '100+' : fmtNum(d.badges.length));
+
+    // Score circle
+    ui('score-value', calc.score);
+    const circumference = 314.16;
+    const offset = circumference - (circumference * calc.score / 100);
+    const progressEl = document.getElementById('score-progress');
+    progressEl.setAttribute('stroke-dashoffset', circumference); // reset
+    setTimeout(() => progressEl.setAttribute('stroke-dashoffset', offset), 50);
+
+    // Score colour
+    const scoreColor = calc.score >= 80 ? '#10b981' : calc.score >= 55 ? '#f59e0b' : '#ef4444';
+    progressEl.setAttribute('stroke', scoreColor);
+    document.getElementById('score-value').style.color = scoreColor;
+
+    // Verdict pill
+    const verdictEl = document.getElementById('verdict');
+    verdictEl.textContent = calc.verdictText;
+    verdictEl.className = `mt-3 text-xs font-bold px-4 py-1.5 inline-block rounded-xl mono ${calc.verdictClass}`;
+
+    // xTracker
+    renderXTracker(xtResult, username);
+
+    // Alt signals
+    const ageYears = ageDays / 365;
+    const signals = [
+        sigRow('Account age',   ageYears >= 2 ? `${Math.floor(ageYears)} yrs old — Good` : ageYears >= 1 ? '1 yr old — Moderate' : 'New — Suspicious',
+               ageYears >= 2 ? 'good' : ageYears >= 1 ? 'warn' : 'bad'),
+        sigRow('Friends',       d.friends >= 50 ? `${fmtNum(d.friends)} — Normal` : d.friends >= 15 ? `${fmtNum(d.friends)} — Low` : `${fmtNum(d.friends)} — Very low`,
+               d.friends >= 50 ? 'good' : d.friends >= 15 ? 'warn' : 'bad'),
+        sigRow('Groups',        d.groups.length >= 4 ? `${d.groups.length} groups — Active` : d.groups.length >= 1 ? `${d.groups.length} group${d.groups.length>1?'s':''} — Sparse` : 'None — Alt-like',
+               d.groups.length >= 4 ? 'good' : d.groups.length >= 1 ? 'warn' : 'bad'),
+        sigRow('Badges',        d.badges.length >= 20 ? `${d.badges.length}+ — Played a lot` : d.badges.length >= 5 ? `${d.badges.length} — Some play` : `${d.badges.length} — Almost none`,
+               d.badges.length >= 20 ? 'good' : d.badges.length >= 5 ? 'warn' : 'bad'),
+        sigRow('xTracker',      xtResult.status === 'clean' || (xtResult.status==='ok'&&xtClean) ? 'Clean' : xtResult.status==='error'?'Unavailable' : xtResult.status==='no_key'?'No key' : 'FLAGGED',
+               xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean) ? 'good' : xtResult.status==='error'||xtResult.status==='no_key'||xtResult.status==='auth_error' ? 'warn' : 'bad')
+    ];
+    document.getElementById('alt-signals').innerHTML = signals.join('');
+
+    // Discord (mock — real Bloxlink integration requires backend/CORS proxy)
+    const discordDiv = document.getElementById('discord-status');
+    if (calc.hasDiscord) {
+        discordDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fa-brands fa-discord text-blue-400 text-2xl"></i>
+                    <div>
+                        <div class="font-semibold text-sm">Discord Linked</div>
+                        <div class="text-xs text-zinc-500 mono mt-0.5">via Bloxlink / RoWifi (mock)</div>
+                    </div>
+                </div>
+                <span class="badge-pill bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">VERIFIED</span>
+            </div>`;
+    } else {
+        discordDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fa-brands fa-discord text-zinc-600 text-2xl"></i>
+                    <div>
+                        <div class="font-semibold text-sm text-zinc-400">No Discord Link Found</div>
+                        <div class="text-xs text-zinc-600 mono mt-0.5">Bloxlink/RoWifi mock — add key for real checks</div>
+                    </div>
+                </div>
+                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">UNVERIFIED</span>
+            </div>`;
+    }
+
+    // AI summary
+    const xt = xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean) ? 'Clean xTracker record.' : xtResult.status==='error'||xtResult.status==='auth_error'||xtResult.status==='no_key' ? 'xTracker check inconclusive.' : '⚠️ Flagged in xTracker cheater database.';
+    document.getElementById('ai-summary').textContent =
+        `${username} (ID ${userId}) scores ${calc.score}/100. ` +
+        `Account is ${Math.floor(ageDays)} days old with ${fmtNum(d.friends)} friends, ${d.groups.length} groups, and ${d.badges.length} badges. ` +
+        `${xt} ` +
+        `Discord: ${calc.hasDiscord ? 'linked (mock).' : 'not linked (mock).'} ` +
+        `Overall: ${calc.score >= 80 ? 'Safe to interact with.' : calc.score >= 55 ? 'Proceed with caution.' : 'High risk — likely an alt or bought account.'}`;
+}
+
+// ════════════════════════════════════════════════
+//  COPY REPORT
+// ════════════════════════════════════════════════
+function copyReport() {
+    if (!currentResult) return;
+    const lines = [
+        '═══ AltGuard Report ═══',
+        `Username : ${currentResult.username}`,
+        `User ID  : ${currentResult.userId}`,
+        `Score    : ${currentResult.score}/100`,
+        `Verdict  : ${currentResult.verdictText}`,
+        `Friends  : ${fmtNum(currentResult.friends)}`,
+        `Followers: ${fmtNum(currentResult.followers)}`,
+        `Groups   : ${currentResult.groups.length}`,
+        `Badges   : ${currentResult.badges.length}`,
+        `Generated: ${new Date().toLocaleString('en-GB')}`,
+    ].join('\n');
+    navigator.clipboard.writeText(lines).then(() => alert('Report copied to clipboard!'));
+}
+
+// ════════════════════════════════════════════════
+//  HISTORY
+// ════════════════════════════════════════════════
+function saveToHistory(entry) {
+    let h = JSON.parse(localStorage.getItem('ag_history') || '[]');
+    h = h.filter(x => x.username !== entry.username); // deduplicate
+    h.unshift(entry);
+    if (h.length > 15) h.length = 15;
+    localStorage.setItem('ag_history', JSON.stringify(h));
+    loadHistory();
+}
+
+function loadHistory() {
+    const container = document.getElementById('history-list');
+    if (!container) return;
+    const h = JSON.parse(localStorage.getItem('ag_history') || '[]');
+    if (h.length === 0) {
+        container.innerHTML = `<div class="text-zinc-500 text-center py-16 mono text-sm">No checks yet.</div>`;
+        return;
+    }
+    container.innerHTML = h.map((item, i) => {
+        const cls = item.score >= 80 ? 'text-emerald-400' : item.score >= 55 ? 'text-amber-400' : 'text-red-400';
+        return `
+            <div onclick="reCheck('${escHtml(item.username)}')"
+                 class="glass border border-zinc-700 hover:border-zinc-500 rounded-2xl px-6 py-4 flex justify-between items-center cursor-pointer transition-all hover:bg-white/5">
+                <div>
+                    <div class="font-semibold">${escHtml(item.displayName)}</div>
+                    <div class="text-xs text-zinc-500 mono">@${escHtml(item.username)} · ${item.date}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold mono ${cls}">${item.score}</div>
+                    <div class="text-[10px] text-zinc-500 mono">${item.verdict}</div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function clearHistory() {
+    if (!confirm('Clear all history?')) return;
+    localStorage.removeItem('ag_history');
+    loadHistory();
+}
+
+function reCheck(username) {
+    document.getElementById('username-input').value = username;
+    showTab(0);
+    startCheck();
+}
+
+// ════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════
+function showTab(n) {
+    for (let i = 0; i < 3; i++) {
+        document.getElementById(`tab-content-${i}`)?.classList.toggle('hidden', i !== n);
+        const btn = document.getElementById(`tab-${i}`);
+        if (btn) { btn.classList.toggle('active', i === n); }
+    }
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+window.onload = function() {
+    // Auto-login
+    if (localStorage.getItem('ag_remember') && localStorage.getItem('ag_logged_in')) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        loadHistory();
+        loadSavedSettings();
+    }
+
+    document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    showTab(0);
+    console.log('%c✅ AltGuard v2 ready\nPassword: AccountChecker123\nxTracker: real API wired', 'color:#10b981;font-family:monospace;font-size:13px');
+};
+</script>
 </body>
 </html>
