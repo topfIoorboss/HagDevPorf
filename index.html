@@ -206,10 +206,11 @@
             <!-- SEARCH BAR -->
             <div class="glass border border-zinc-700 rounded-2xl p-2 flex items-center gap-3 mb-10">
                 <div class="flex-1 flex items-center gap-3 px-4">
-                    <i class="fa-solid fa-user text-zinc-500 text-sm"></i>
-                    <input id="username-input" type="text" placeholder="Enter Roblox username…"
+                    <i id="search-icon" class="fa-solid fa-user text-zinc-500 text-sm"></i>
+                    <input id="username-input" type="text" placeholder="Username or User ID…"
                         class="flex-1 bg-transparent text-lg outline-none py-3 mono placeholder:text-zinc-600"
-                        onkeydown="if(event.key==='Enter') startCheck()">
+                        onkeydown="if(event.key==='Enter') startCheck()"
+                        oninput="updateSearchIcon(this.value)">
                 </div>
                 <button id="check-btn" onclick="startCheck()"
                     class="bg-emerald-500 hover:bg-emerald-400 active:scale-95 px-8 py-3.5 rounded-xl font-semibold flex items-center gap-2.5 transition-all text-sm">
@@ -756,6 +757,14 @@ function calculateScore(data, xtClean) {
 // ════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════
+function updateSearchIcon(val) {
+    const icon = document.getElementById('search-icon');
+    if (!icon) return;
+    const isId = /^\d+$/.test(val.trim());
+    icon.className = isId
+        ? 'fa-solid fa-hashtag text-emerald-400 text-sm'
+        : 'fa-solid fa-user text-zinc-500 text-sm';
+}
 function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -788,8 +797,12 @@ let checking = false;
 
 async function startCheck() {
     if (checking) return;
-    const username = document.getElementById('username-input').value.trim().toLowerCase();
-    if (!username) { document.getElementById('username-input').focus(); return; }
+    const raw = document.getElementById('username-input').value.trim();
+    if (!raw) { document.getElementById('username-input').focus(); return; }
+
+    // Detect if input is a numeric User ID
+    const isUserId = /^\d+$/.test(raw);
+    const displayInput = raw; // preserve original casing for display
 
     checking = true;
     setCheckingUI(true);
@@ -800,11 +813,18 @@ async function startCheck() {
     document.getElementById('loading-skeleton').classList.remove('hidden');
 
     try {
-        const userId = await resolveUsername(username);
+        let userId;
+        if (isUserId) {
+            userId = parseInt(raw, 10);
+        } else {
+            // Pass username as-is — Roblox API is case-insensitive
+            userId = await resolveUsername(raw);
+        }
+
         if (!userId) {
             document.getElementById('loading-skeleton').classList.add('hidden');
             document.getElementById('empty-state').classList.remove('hidden');
-            alert(`Username "${username}" not found on Roblox.`);
+            alert(`"${raw}" not found on Roblox.`);
             return;
         }
 
@@ -813,6 +833,9 @@ async function startCheck() {
             fetchRobloxData(userId),
             checkXTracker(userId)
         ]);
+
+        // Use the real username from the API response for display/history
+        const username = robloxData.userInfo.name || displayInput;
 
         const xtClean = xtResult.status === 'clean' || (xtResult.status === 'ok' && !(xtResult.data?.flagged));
         const calc = calculateScore(robloxData, xtResult.status === 'error' || xtResult.status === 'no_key' ? null : xtClean);
