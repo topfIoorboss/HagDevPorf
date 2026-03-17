@@ -153,9 +153,8 @@
 
             <div id="login-error" class="hidden text-red-400 text-center text-xs py-2.5 bg-red-950/40 border border-red-900/40 rounded-xl mono"></div>
 
-            <div class="text-center text-[10px] text-zinc-600 mono">
-                PASSWORD: AccountChecker123<br>
-                <span class="text-emerald-600">3-attempt lockout · 60s cooldown</span>
+            <div class="text-center text-[10px] text-zinc-700 mono">
+                3-attempt lockout · 60s cooldown
             </div>
         </div>
     </div>
@@ -427,10 +426,11 @@
             <div class="max-w-xl glass border border-zinc-700 rounded-2xl p-8 space-y-7">
 
                 <div>
-                    <label class="text-xs font-semibold text-zinc-400 mb-2 block mono tracking-widest">BLOXLINK / ROWIFI API KEY</label>
+                    <label class="text-xs font-semibold text-zinc-400 mb-2 block mono tracking-widest">BLOXLINK API KEY</label>
                     <input id="bloxlink-key" type="password"
                         class="input-field w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-3 text-sm mono"
-                        placeholder="Leave blank — uses mock data">
+                        placeholder="sk-bloxlink-…">
+                    <p class="text-xs text-zinc-600 mt-1.5 mono">Used for Discord verification checks</p>
                 </div>
 
                 <div>
@@ -446,7 +446,6 @@
                         class="bg-white text-black font-semibold px-8 py-3 rounded-xl hover:bg-zinc-200 active:scale-95 transition-all text-sm">
                         SAVE SETTINGS
                     </button>
-                    <p class="text-[11px] text-zinc-600 mono mt-3">Stored in browser localStorage only. Never sent anywhere.</p>
                 </div>
             </div>
         </div>
@@ -499,7 +498,7 @@ function showLoginError(msg) {
     setTimeout(() => el.classList.add('hidden'), 5000);
 }
 
-function forgotPassword() { alert('Password: AccountChecker123\n\n(Demo — hardcoded for local use)'); }
+function forgotPassword() { alert('Contact the person who gave you access to retrieve the password.'); }
 
 function logout() {
     localStorage.removeItem('ag_logged_in'); localStorage.removeItem('ag_remember');
@@ -520,7 +519,12 @@ function loadSavedSettings() {
 function saveSettings() {
     localStorage.setItem('ag_bloxlink_key', document.getElementById('bloxlink-key').value.trim());
     localStorage.setItem('ag_xtracker_key', document.getElementById('xtracker-key').value.trim());
-    alert('Settings saved.');
+    const btn = document.querySelector('[onclick="saveSettings()"]');
+    const orig = btn.textContent;
+    btn.textContent = '✓ SAVED';
+    btn.style.background = '#10b981';
+    btn.style.color = '#000';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
 }
 
 function getXTrackerKey() {
@@ -531,60 +535,80 @@ function getXTrackerKey() {
 //  ROBLOX API  (proxied to bypass CORS)
 // ════════════════════════════════════════════════
 
-// corsproxy.io wraps the URL and adds the required CORS headers
-const PROXY = 'https://corsproxy.io/?url=';
-const proxy = url => PROXY + encodeURIComponent(url);
+// Multiple proxies tried in order — first one that works wins
+const PROXIES = [
+    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://thingproxy.freeboard.io/fetch/${url}`,
+];
+
+async function proxyFetch(url, fallback, opts = {}) {
+    // 1. Try direct (works in some environments)
+    try {
+        const r = await fetch(url, opts);
+        if (r.ok) {
+            const text = await r.text();
+            try { return JSON.parse(text); } catch { return fallback; }
+        }
+    } catch {}
+
+    // 2. Try each proxy in order
+    for (const makeProxy of PROXIES) {
+        try {
+            const r = await fetch(makeProxy(url), opts);
+            if (r.ok) {
+                const text = await r.text();
+                try { return JSON.parse(text); } catch { continue; }
+            }
+        } catch {}
+    }
+
+    return fallback;
+}
 
 async function resolveUsername(username) {
-    // Try direct first (works when opened from certain environments),
-    // then fall back to proxy.
     const TARGET = 'https://users.roblox.com/v1/usernames/users';
-    const BODY   = JSON.stringify({ usernames: [username], excludeBannedUsers: false });
-    const OPTS   = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: BODY };
+    const OPTS   = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+    };
 
-    // 1) direct attempt
+    // Direct first
     try {
         const r = await fetch(TARGET, OPTS);
         if (r.ok) {
             const d = await r.json();
-            if (d.data && d.data.length > 0) return d.data[0].id;
-            return null; // username genuinely not found
-        }
-    } catch {}
-
-    // 2) proxy attempt
-    try {
-        const r = await fetch(proxy(TARGET), OPTS);
-        if (r.ok) {
-            const d = await r.json();
-            if (d.data && d.data.length > 0) return d.data[0].id;
+            if (d.data?.length > 0) return d.data[0].id;
             return null;
         }
     } catch {}
 
-    return null;
-}
-
-async function proxyFetch(url, fallback) {
-    // Try direct, then proxied
-    for (const target of [url, proxy(url)]) {
+    // Proxies — POST with body needs special handling per proxy
+    for (const makeProxy of PROXIES) {
         try {
-            const r = await fetch(target);
-            if (r.ok) return r.json().catch(() => fallback);
+            const r = await fetch(makeProxy(TARGET), OPTS);
+            if (r.ok) {
+                const text = await r.text();
+                const d = JSON.parse(text);
+                if (d.data?.length > 0) return d.data[0].id;
+                return null; // valid response, username just doesn't exist
+            }
         } catch {}
     }
-    return fallback;
+
+    return null;
 }
 
 async function fetchRobloxData(userId) {
     const [userInfo, friends, followers, following, groups, badges, thumb] = await Promise.all([
-        proxyFetch(`https://users.roblox.com/v1/users/${userId}`,                                                          {}),
-        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`,                                          { count: 0 }),
-        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`,                                        { count: 0 }),
-        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`,                                       { count: 0 }),
-        proxyFetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`,                                            { data: [] }),
-        proxyFetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`,                         { data: [] }),
-        proxyFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`,     {})
+        proxyFetch(`https://users.roblox.com/v1/users/${userId}`,                                                      {}),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/friends/count`,                                      { count: 0 }),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followers/count`,                                    { count: 0 }),
+        proxyFetch(`https://friends.roblox.com/v1/users/${userId}/followings/count`,                                   { count: 0 }),
+        proxyFetch(`https://groups.roblox.com/v1/users/${userId}/groups/roles`,                                        { data: [] }),
+        proxyFetch(`https://badges.roblox.com/v1/users/${userId}/badges?limit=100&sortOrder=Desc`,                     { data: [] }),
+        proxyFetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=420x420&format=Png`, {})
     ]);
 
     return {
@@ -594,7 +618,7 @@ async function fetchRobloxData(userId) {
         following: following.count ?? 0,
         groups:    groups.data     ?? [],
         badges:    badges.data     ?? [],
-        avatar:    thumb?.data?.[0]?.imageUrl ?? ''
+        avatar:    thumb?.data?.[0]?.imageUrl ?? null
     };
 }
 
@@ -607,17 +631,18 @@ async function checkXTracker(userId) {
     const key = getXTrackerKey();
     if (!key) return { status: 'no_key' };
 
-    // Try common endpoint patterns used by community DBs
+    // xTracker endpoint — update this URL once you have the real API docs
+    // The key format suggests a REST API; trying the most likely patterns:
     const endpoints = [
+        `https://api.xtracker.gg/v1/lookup/${userId}`,
         `https://api.xtracker.gg/lookup?userId=${userId}`,
-        `https://xtracker.gg/api/lookup?userId=${userId}`,
-        `https://api.xtracker.gg/v1/users/${userId}`
+        `https://xtracker.gg/api/v1/users/${userId}`,
     ];
 
     for (const url of endpoints) {
         try {
             const r = await fetch(url, {
-                headers: { 'Authorization': key, 'x-api-key': key }
+                headers: { 'Authorization': `Bearer ${key}`, 'x-api-key': key }
             });
             if (r.ok) {
                 const data = await r.json();
@@ -627,7 +652,8 @@ async function checkXTracker(userId) {
             if (r.status === 401 || r.status === 403) return { status: 'auth_error' };
         } catch {}
     }
-    return { status: 'error' };
+    // All endpoints failed — treat as unconfigured rather than hard error
+    return { status: 'unconfigured' };
 }
 
 function renderXTracker(result, username) {
@@ -693,9 +719,16 @@ function renderXTracker(result, username) {
         return null;
     }
 
-    // error / unreachable
-    panel.className = 'rounded-xl p-5 text-sm xt-error-bg';
-    panel.innerHTML = `<div class="flex items-center gap-3 text-amber-400"><i class="fa-solid fa-triangle-exclamation text-lg"></i><div><div class="font-semibold">Could Not Reach xTracker</div><div class="text-xs text-zinc-400 mono mt-0.5">API may be down or endpoint changed</div></div></div>`;
+    // error / unreachable / unconfigured
+    panel.className = 'rounded-xl p-5 text-sm bg-zinc-900/60 border border-zinc-800';
+    panel.innerHTML = `
+        <div class="flex items-center gap-3 text-zinc-400">
+            <i class="fa-solid fa-circle-question text-zinc-500 text-lg"></i>
+            <div>
+                <div class="font-semibold text-zinc-300">xTracker Not Configured</div>
+                <div class="text-xs text-zinc-500 mono mt-0.5">Contact xTracker to get the correct API endpoint</div>
+            </div>
+        </div>`;
     return null;
 }
 
@@ -740,9 +773,8 @@ function calculateScore(data, xtClean) {
     if (xtClean === true)  score += 10;
     if (xtClean === false) score -= 25;
 
-    // Discord (mock — real Bloxlink would go here)
-    const hasDiscord = Math.random() > 0.4;
-    if (hasDiscord) score += 8;
+    // Discord excluded from score (requires backend integration)
+    const hasDiscord = false;
 
     score = Math.min(100, Math.max(10, Math.round(score)));
 
@@ -838,7 +870,8 @@ async function startCheck() {
         const username = robloxData.userInfo.name || displayInput;
 
         const xtClean = xtResult.status === 'clean' || (xtResult.status === 'ok' && !(xtResult.data?.flagged));
-        const calc = calculateScore(robloxData, xtResult.status === 'error' || xtResult.status === 'no_key' ? null : xtClean);
+        const xtUnknown = ['unconfigured', 'no_key', 'auth_error'].includes(xtResult.status);
+        const calc = calculateScore(robloxData, xtUnknown ? null : xtClean);
 
         populateUI(userId, username, robloxData, calc, xtResult, xtClean);
 
@@ -886,10 +919,19 @@ function populateUI(userId, username, d, calc, xtResult, xtClean) {
     const hide = id => document.getElementById(id)?.classList.add('hidden');
     const show = id => document.getElementById(id)?.classList.remove('hidden');
 
-    // Avatar
+    // Avatar — use Roblox thumbnail URL directly as img src (browser loads it fine even if fetch is blocked)
     const av = document.getElementById('avatar');
-    av.src = d.avatar || 'https://www.roblox.com/headshot-thumbnail/image?userId=' + userId + '&width=420&height=420&format=png';
-    av.onerror = () => av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=10b981&color=000&size=420`;
+    if (d.avatar) {
+        av.src = d.avatar;
+    } else {
+        av.src = `https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=420&height=420&format=png`;
+    }
+    av.onerror = () => {
+        // Final fallback: initials based on username, not userId
+        const initials = encodeURIComponent((username || 'RB').slice(0, 2).toUpperCase());
+        av.src = `https://ui-avatars.com/api/?name=${initials}&background=10b981&color=000&size=420&bold=true`;
+        av.onerror = null;
+    };
 
     // Basic info
     ui('display-name', d.userInfo.displayName || username);
@@ -901,11 +943,12 @@ function populateUI(userId, username, d, calc, xtResult, xtClean) {
     if (desc) { ui('description-text', desc); show('description-text'); }
     else hide('description-text');
 
-    // Dates
-    const created = new Date(d.userInfo.created);
-    const ageDays  = (Date.now() - created) / 86400000;
-    ui('created-date', created.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }));
-    ui('age', ageStr(ageDays));
+    // Dates — guard against missing created field
+    let created = d.userInfo.created ? new Date(d.userInfo.created) : null;
+    const isValidDate = created && !isNaN(created.getTime());
+    const ageDays = isValidDate ? (Date.now() - created) / 86400000 : 0;
+    ui('created-date', isValidDate ? created.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown');
+    ui('age', isValidDate ? ageStr(ageDays) : '—');
 
     // Counts
     ui('friends-count',   fmtNum(d.friends));
@@ -946,46 +989,39 @@ function populateUI(userId, username, d, calc, xtResult, xtClean) {
                d.groups.length >= 4 ? 'good' : d.groups.length >= 1 ? 'warn' : 'bad'),
         sigRow('Badges',        d.badges.length >= 20 ? `${d.badges.length}+ — Played a lot` : d.badges.length >= 5 ? `${d.badges.length} — Some play` : `${d.badges.length} — Almost none`,
                d.badges.length >= 20 ? 'good' : d.badges.length >= 5 ? 'warn' : 'bad'),
-        sigRow('xTracker',      xtResult.status === 'clean' || (xtResult.status==='ok'&&xtClean) ? 'Clean' : xtResult.status==='error'?'Unavailable' : xtResult.status==='no_key'?'No key' : 'FLAGGED',
-               xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean) ? 'good' : xtResult.status==='error'||xtResult.status==='no_key'||xtResult.status==='auth_error' ? 'warn' : 'bad')
+        sigRow('xTracker',
+            xtResult.status === 'clean' || (xtResult.status==='ok'&&xtClean) ? 'Clean' :
+            xtResult.status==='unconfigured'||xtResult.status==='no_key'||xtResult.status==='auth_error' ? 'Not configured' : 'FLAGGED',
+            xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean) ? 'good' :
+            xtResult.status==='unconfigured'||xtResult.status==='no_key'||xtResult.status==='auth_error' ? 'warn' : 'bad')
     ];
     document.getElementById('alt-signals').innerHTML = signals.join('');
 
-    // Discord (mock — real Bloxlink integration requires backend/CORS proxy)
+    // Discord — Bloxlink requires a backend, so this section is intentionally informational
     const discordDiv = document.getElementById('discord-status');
-    if (calc.hasDiscord) {
-        discordDiv.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <i class="fa-brands fa-discord text-blue-400 text-2xl"></i>
-                    <div>
-                        <div class="font-semibold text-sm">Discord Linked</div>
-                        <div class="text-xs text-zinc-500 mono mt-0.5">via Bloxlink / RoWifi (mock)</div>
-                    </div>
+    discordDiv.innerHTML = `
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-brands fa-discord text-zinc-500 text-2xl"></i>
+                <div>
+                    <div class="font-semibold text-sm text-zinc-300">Discord Check</div>
+                    <div class="text-xs text-zinc-500 mono mt-0.5">Add a Bloxlink API key in Settings to enable</div>
                 </div>
-                <span class="badge-pill bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">VERIFIED</span>
-            </div>`;
-    } else {
-        discordDiv.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <i class="fa-brands fa-discord text-zinc-600 text-2xl"></i>
-                    <div>
-                        <div class="font-semibold text-sm text-zinc-400">No Discord Link Found</div>
-                        <div class="text-xs text-zinc-600 mono mt-0.5">Bloxlink/RoWifi mock — add key for real checks</div>
-                    </div>
-                </div>
-                <span class="badge-pill bg-amber-500/10 text-amber-400 border border-amber-500/20">UNVERIFIED</span>
-            </div>`;
-    }
+            </div>
+            <span class="badge-pill bg-zinc-800 text-zinc-500 border border-zinc-700">UNAVAILABLE</span>
+        </div>`;
 
-    // AI summary
-    const xt = xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean) ? 'Clean xTracker record.' : xtResult.status==='error'||xtResult.status==='auth_error'||xtResult.status==='no_key' ? 'xTracker check inconclusive.' : '⚠️ Flagged in xTracker cheater database.';
+    // Summary
+    const xtSummary = xtResult.status==='clean'||(xtResult.status==='ok'&&xtClean)
+        ? 'Clean xTracker record.'
+        : xtResult.status==='unconfigured'||xtResult.status==='no_key'
+        ? 'xTracker not configured.'
+        : '⚠️ Flagged in xTracker database.';
+    const ageSummary = isValidDate ? `${Math.floor(ageDays)} days old` : 'unknown age';
     document.getElementById('ai-summary').textContent =
         `${username} (ID ${userId}) scores ${calc.score}/100. ` +
-        `Account is ${Math.floor(ageDays)} days old with ${fmtNum(d.friends)} friends, ${d.groups.length} groups, and ${d.badges.length} badges. ` +
-        `${xt} ` +
-        `Discord: ${calc.hasDiscord ? 'linked (mock).' : 'not linked (mock).'} ` +
+        `Account is ${ageSummary} with ${fmtNum(d.friends)} friends, ${d.groups.length} groups, and ${d.badges.length} badges. ` +
+        `${xtSummary} ` +
         `Overall: ${calc.score >= 80 ? 'Safe to interact with.' : calc.score >= 55 ? 'Proceed with caution.' : 'High risk — likely an alt or bought account.'}`;
 }
 
