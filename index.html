@@ -391,7 +391,7 @@
       <ol class="steps">
         <li>In the Instagram app: <strong>Settings</strong> → <strong>Account</strong> → <strong>Download your information</strong> (path may say “Your activity” or “Accounts Center” depending on version).</li>
         <li>Request JSON format, then download the zip when it is ready.</li>
-        <li>Unzip and find <code>following.json</code> and <code>followers_1.json</code> (plus <code>followers_2.json</code> if Instagram split your list). Load every <code>followers_*.json</code> you have — they merge automatically.</li>
+        <li>Unzip and open <code>connections/followers_and_following/</code> (folder names can vary slightly). Use <code>following.json</code> or <code>following_1.json</code>, and every <code>followers_*.json</code> — follower files merge when you load more than one.</li>
       </ol>
     </section>
 
@@ -412,7 +412,7 @@
           <label class="drop-zone" data-kind="following">
             <input type="file" accept=".json,application/json" />
             <strong>Drop or click</strong>
-            <span>following.json from your zip</span>
+            <span>following.json or following_1.json from your zip</span>
             <div class="pill" id="following-status">No file</div>
           </label>
         </div>
@@ -474,15 +474,63 @@
     (function () {
       const normalize = (s) => String(s || "").trim().replace(/^@/, "").toLowerCase();
 
-      function extractFromStringListEntry(entry) {
-        if (!entry || typeof entry !== "object") return null;
-        const list = entry.string_list_data;
-        if (!Array.isArray(list) || list.length === 0) return null;
-        const first = list[0];
-        if (first && typeof first.value === "string") return normalize(first.value);
-        return null;
+      const IG_PATH_SKIP = new Set([
+        "p",
+        "reel",
+        "reels",
+        "stories",
+        "explore",
+        "accounts",
+        "direct",
+        "tv",
+        "legal",
+        "about",
+      ]);
+
+      const TITLE_SKIP = new Set([
+        "",
+        "following",
+        "followers",
+        "follower",
+        "follow",
+        "connections",
+        "connection",
+      ]);
+
+      function usernameFromInstagramUrl(str) {
+        if (typeof str !== "string" || !str.trim()) return null;
+        let pathname = str.trim();
+        try {
+          const base = pathname.startsWith("http") ? undefined : "https://www.instagram.com";
+          const u = new URL(pathname, base);
+          const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+          if (host !== "instagram.com" && !host.endsWith(".instagram.com")) return null;
+          pathname = u.pathname;
+        } catch (_) {
+          const m = str.match(/instagram\.com\/([^/?#]+)/i);
+          if (!m) return null;
+          pathname = "/" + m[1];
+        }
+        const seg = pathname.split("/").filter(Boolean)[0];
+        if (!seg) return null;
+        const lower = seg.toLowerCase();
+        if (IG_PATH_SKIP.has(lower)) return null;
+        if (!/^[a-zA-Z0-9._]+$/.test(seg) || seg.length > 30) return null;
+        return normalize(seg);
       }
 
+      function isLikelyIgUsername(t) {
+        if (typeof t !== "string") return false;
+        const s = t.trim();
+        if (s.length < 1 || s.length > 30) return false;
+        if (!/^[a-zA-Z0-9._]+$/.test(s)) return false;
+        if (/^\d{8,}$/.test(s)) return false;
+        return true;
+      }
+
+      /**
+       * @returns {{ usernames: Set<string>, parseError: string | null }}
+       */
       function extractUsernames(raw) {
         const out = new Set();
         const add = (u) => {
@@ -490,50 +538,81 @@
           if (n) out.add(n);
         };
 
-        function walk(node) {
-          if (node == null) return;
-          if (typeof node === "string") {
-            add(node);
+        function addFromString(s) {
+          if (typeof s !== "string") return;
+          const t = s.trim();
+          if (!t) return;
+          if (/instagram\.com/i.test(t)) {
+            const u = usernameFromInstagramUrl(t);
+            if (u) out.add(u);
             return;
           }
-          if (Array.isArray(node)) {
-            for (const item of node) {
-              if (typeof item === "string") add(item);
-              else if (item && typeof item === "object") {
-                const u = extractFromStringListEntry(item);
+          if (isLikelyIgUsername(t)) add(t);
+        }
+
+        function scanObject(obj) {
+          if (!obj || typeof obj !== "object") return;
+          if (Array.isArray(obj.string_list_data)) {
+            for (const row of obj.string_list_data) {
+              if (!row || typeof row !== "object") continue;
+              if (typeof row.value === "string") addFromString(row.value);
+              if (typeof row.href === "string") {
+                const u = usernameFromInstagramUrl(row.href);
                 if (u) out.add(u);
-                else walk(item);
               }
             }
+          }
+          for (const key of ["value", "username", "user_name"]) {
+            if (typeof obj[key] === "string") addFromString(obj[key]);
+          }
+          if (typeof obj.href === "string") {
+            const u = usernameFromInstagramUrl(obj.href);
+            if (u) out.add(u);
+          }
+          if (typeof obj.title === "string" && obj.title.trim()) {
+            const tl = normalize(obj.title);
+            if (!TITLE_SKIP.has(tl) && isLikelyIgUsername(obj.title.trim())) add(obj.title.trim());
+          }
+        }
+
+        function deepWalk(node) {
+          if (node == null) return;
+          if (Array.isArray(node)) {
+            for (const item of node) deepWalk(item);
             return;
           }
           if (typeof node === "object") {
-            const keys = [
-              "relationships_followers",
-              "relationships_following",
-              "followers",
-              "following",
-              "string_list_data",
-            ];
-            for (const k of keys) {
-              if (k in node) walk(node[k]);
+            scanObject(node);
+            for (const k of Object.keys(node)) {
+              const v = node[k];
+              if (v != null && typeof v === "object") deepWalk(v);
             }
-            if (Array.isArray(node.string_list_data)) {
-              for (const row of node.string_list_data) {
-                if (row && typeof row.value === "string") add(row.value);
-              }
-            }
+            return;
           }
+          if (typeof node === "string") addFromString(node);
         }
 
-        try {
-          const data = typeof raw === "string" ? JSON.parse(raw) : raw;
-          walk(data);
-        } catch (_) {
-          return new Set();
+        let data;
+        if (typeof raw === "string") {
+          const text = raw.replace(/^\uFEFF/, "").trim();
+          if (!text) {
+            return { usernames: new Set(), parseError: null };
+          }
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            return {
+              usernames: new Set(),
+              parseError:
+                "This file is not valid JSON. In Instagram’s export, pick Format: JSON (not HTML) and use the real .json file from the zip.",
+            };
+          }
+        } else {
+          data = raw;
         }
 
-        return out;
+        deepWalk(data);
+        return { usernames: out, parseError: null };
       }
 
       let followersSet = new Set();
@@ -662,10 +741,13 @@
         if (!file) return;
         try {
           const text = await readFile(file);
-          const set = extractUsernames(text);
+          const { usernames: set, parseError } = extractUsernames(text);
+          if (parseError) {
+            throw new Error(parseError);
+          }
           if (set.size === 0) {
             throw new Error(
-              "No usernames found. Check that you picked the correct JSON from the Instagram export (followers_*.json or following.json)."
+              "No usernames found in this file. Use JSON from your Instagram data export: under connections (e.g. followers_and_following), load following.json / following_1.json or followers_1.json — not HTML, and not a different section’s JSON."
             );
           }
           if (kind === "followers") {
@@ -673,8 +755,9 @@
             const count = followersSet.size;
             setStatus(els.followersStatus, count + " usernames (" + file.name + ")", true);
           } else {
-            followingSet = set;
-            setStatus(els.followingStatus, file.name, true);
+            followingSet = new Set([...followingSet, ...set]);
+            const count = followingSet.size;
+            setStatus(els.followingStatus, count + " usernames (" + file.name + ")", true);
           }
           recompute();
         } catch (e) {
