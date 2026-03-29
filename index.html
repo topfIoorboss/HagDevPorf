@@ -1,55 +1,754 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Instagram Follow Checker</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .input-group { margin: 20px 0; }
-        input[type="text"] { width: 100%; padding: 10px; margin: 5px 0; }
-        button { background: #3897f0; color: white; padding: 10px 20px; border: none; cursor: pointer; }
-        .results { margin-top: 20px; }
-        .user { display: inline-block; margin: 5px; padding: 5px 10px; background: #f0f0f0; border-radius: 5px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Instagram follow checker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0d10;
+      --surface: #14161c;
+      --surface2: #1c1f28;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8eaef;
+      --muted: #8b919d;
+      --accent: #e1306c;
+      --accent-dim: rgba(225, 48, 108, 0.15);
+      --ok: #3dd68c;
+      --warn: #f5a623;
+      --radius: 14px;
+      --shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(225, 48, 108, 0.18), transparent),
+        radial-gradient(ellipse 80% 50% at 100% 50%, rgba(88, 81, 219, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 0% 80%, rgba(225, 48, 108, 0.08), transparent);
+    }
+
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: clamp(1.6rem, 4vw, 2.1rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+    }
+
+    header p {
+      color: var(--muted);
+      max-width: 36rem;
+      margin: 0 auto;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1.35rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .steps li {
+      position: relative;
+      padding-left: 2.25rem;
+      margin-bottom: 0.75rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .steps li:last-child {
+      margin-bottom: 0;
+    }
+
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0.1rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 8px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 1rem;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: rgba(225, 48, 108, 0.45);
+      background: var(--accent-dim);
+    }
+
+    .drop-zone strong {
+      display: block;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .drop-zone span {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .drop-zone input {
+      display: none;
+    }
+
+    .file-row {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 560px) {
+      .file-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .file-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: var(--surface2);
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .pill.ok {
+      color: var(--ok);
+      background: rgba(61, 214, 140, 0.12);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat {
+      background: var(--surface2);
+      border-radius: 12px;
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .stat .num {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .stat .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .tab.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: rgba(225, 48, 108, 0.35);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .search {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .search input {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    .search input::placeholder {
+      color: var(--muted);
+    }
+
+    .search input:focus {
+      outline: none;
+      border-color: rgba(225, 48, 108, 0.5);
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn:hover {
+      background: #252830;
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #e1306c, #c13584);
+      border: none;
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.08);
+    }
+
+    .list {
+      max-height: min(420px, 55vh);
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface2);
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item a {
+      color: #a8b0ff;
+      text-decoration: none;
+    }
+
+    .list-item a:hover {
+      text-decoration: underline;
+    }
+
+    .empty-hint {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .error {
+      background: rgba(245, 87, 108, 0.12);
+      border: 1px solid rgba(245, 87, 108, 0.35);
+      color: #ff8a95;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    #results {
+      display: none;
+    }
+
+    #results.visible {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <h1>Instagram Follow Checker</h1>
-    <div class="input-group">
-        <label>Your Instagram Username:</label>
-        <input type="text" id="username" placeholder="Enter your username">
-        <button onclick="checkFollowers()">Check Unfollowers</button>
-    </div>
-    <div id="results" class="results"></div>
+  <div class="wrap">
+    <header>
+      <h1>Follow checker</h1>
+      <p>
+        Compare your Instagram <strong>followers</strong> and <strong>following</strong> lists from your official data download.
+        Everything runs in your browser; your files never leave your device.
+      </p>
+    </header>
 
-    <script>
-        async function checkFollowers() {
-            const username = document.getElementById('username').value;
-            const resultsDiv = document.getElementById('results');
-            
-            if (!username) {
-                resultsDiv.innerHTML = '<p>Please enter a username</p>';
-                return;
-            }
+    <section class="card">
+      <h2>How to get your lists</h2>
+      <ol class="steps">
+        <li>In the Instagram app: <strong>Settings</strong> → <strong>Account</strong> → <strong>Download your information</strong> (path may say “Your activity” or “Accounts Center” depending on version).</li>
+        <li>Request JSON format, then download the zip when it is ready.</li>
+        <li>Unzip and find <code>following.json</code> and <code>followers_1.json</code> (plus <code>followers_2.json</code> if Instagram split your list). Load every <code>followers_*.json</code> you have — they merge automatically.</li>
+      </ol>
+    </section>
 
-            resultsDiv.innerHTML = '<p>Loading...</p>';
-            
-            try {
-                // You'll need to get an API token from Apify
-                const response = await fetch(`https://api.apify.com/v2/acts/coderx~instagram-followers-list-scraper/run-sync-get-dataset-items?token=YOUR_API_TOKEN`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ usernames: [username] })
-                });
-                
-                const data = await response.json();
-                
-                // This is simplified - you'd need to compare followers vs following
-                resultsDiv.innerHTML = '<p>Analysis complete. Check console for data.</p>';
-                console.log('Followers data:', data);
-                
-            } catch (error) {
-                resultsDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+    <section class="card">
+      <h2>Load your export</h2>
+      <div class="file-row">
+        <div>
+          <span class="file-label">Followers (followers_*.json)</span>
+          <label class="drop-zone" data-kind="followers">
+            <input type="file" accept=".json,application/json" />
+            <strong>Drop or click</strong>
+            <span>followers_1.json from your zip</span>
+            <div class="pill" id="followers-status">No file</div>
+          </label>
+        </div>
+        <div>
+          <span class="file-label">Following (following.json)</span>
+          <label class="drop-zone" data-kind="following">
+            <input type="file" accept=".json,application/json" />
+            <strong>Drop or click</strong>
+            <span>following.json from your zip</span>
+            <div class="pill" id="following-status">No file</div>
+          </label>
+        </div>
+      </div>
+      <p class="error" id="parse-error" role="alert"></p>
+      <button type="button" class="btn" id="reset-data" style="margin-top: 0.5rem">Clear loaded files</button>
+    </section>
+
+    <section class="card" id="results">
+      <h2>Summary</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="num" id="stat-followers">0</div>
+          <div class="label">Followers</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="stat-following">0</div>
+          <div class="label">Following</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="stat-mutual">0</div>
+          <div class="label">Mutual</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="stat-not-back" style="color: var(--warn)">0</div>
+          <div class="label">You follow, they don’t follow back</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="stat-no-follow" style="color: #a8b0ff">0</div>
+          <div class="label">They follow you, you don’t follow</div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="not-back" role="tab" aria-selected="true">Don’t follow you back</button>
+        <button type="button" class="tab" data-tab="no-follow" role="tab">You don’t follow</button>
+        <button type="button" class="tab" data-tab="mutual" role="tab">Mutual</button>
+        <button type="button" class="tab" data-tab="followers" role="tab">All followers</button>
+        <button type="button" class="tab" data-tab="following" role="tab">All following</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <input type="search" id="filter" placeholder="Filter by username…" autocomplete="off" />
+        </div>
+        <button type="button" class="btn" id="copy-list">Copy list</button>
+        <button type="button" class="btn primary" id="copy-open">Copy @handles</button>
+      </div>
+
+      <div class="list" id="list" role="list"></div>
+    </section>
+
+    <footer>
+      Private tool — no Instagram login, no server. Uses only files from your official data export.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const normalize = (s) => String(s || "").trim().replace(/^@/, "").toLowerCase();
+
+      function extractFromStringListEntry(entry) {
+        if (!entry || typeof entry !== "object") return null;
+        const list = entry.string_list_data;
+        if (!Array.isArray(list) || list.length === 0) return null;
+        const first = list[0];
+        if (first && typeof first.value === "string") return normalize(first.value);
+        return null;
+      }
+
+      function extractUsernames(raw) {
+        const out = new Set();
+        const add = (u) => {
+          const n = normalize(u);
+          if (n) out.add(n);
+        };
+
+        function walk(node) {
+          if (node == null) return;
+          if (typeof node === "string") {
+            add(node);
+            return;
+          }
+          if (Array.isArray(node)) {
+            for (const item of node) {
+              if (typeof item === "string") add(item);
+              else if (item && typeof item === "object") {
+                const u = extractFromStringListEntry(item);
+                if (u) out.add(u);
+                else walk(item);
+              }
             }
+            return;
+          }
+          if (typeof node === "object") {
+            const keys = [
+              "relationships_followers",
+              "relationships_following",
+              "followers",
+              "following",
+              "string_list_data",
+            ];
+            for (const k of keys) {
+              if (k in node) walk(node[k]);
+            }
+            if (Array.isArray(node.string_list_data)) {
+              for (const row of node.string_list_data) {
+                if (row && typeof row.value === "string") add(row.value);
+              }
+            }
+          }
         }
-    </script>
+
+        try {
+          const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+          walk(data);
+        } catch (_) {
+          return new Set();
+        }
+
+        return out;
+      }
+
+      let followersSet = new Set();
+      let followingSet = new Set();
+      let activeTab = "not-back";
+
+      const els = {
+        followersStatus: document.getElementById("followers-status"),
+        followingStatus: document.getElementById("following-status"),
+        parseError: document.getElementById("parse-error"),
+        results: document.getElementById("results"),
+        statFollowers: document.getElementById("stat-followers"),
+        statFollowing: document.getElementById("stat-following"),
+        statMutual: document.getElementById("stat-mutual"),
+        statNotBack: document.getElementById("stat-not-back"),
+        statNoFollow: document.getElementById("stat-no-follow"),
+        list: document.getElementById("list"),
+        filter: document.getElementById("filter"),
+        copyList: document.getElementById("copy-list"),
+        copyOpen: document.getElementById("copy-open"),
+        resetData: document.getElementById("reset-data"),
+      };
+
+      function setStatus(el, name, ok) {
+        el.textContent = name || "No file";
+        el.classList.toggle("ok", !!ok);
+      }
+
+      function readFile(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(new Error("Could not read file"));
+          r.readAsText(file, "UTF-8");
+        });
+      }
+
+      function recompute() {
+        els.parseError.classList.remove("show");
+        els.parseError.textContent = "";
+
+        if (followersSet.size === 0 && followingSet.size === 0) {
+          els.results.classList.remove("visible");
+          return;
+        }
+
+        const mutual = new Set();
+        for (const u of followersSet) {
+          if (followingSet.has(u)) mutual.add(u);
+        }
+
+        const notBack = [];
+        for (const u of followingSet) {
+          if (!followersSet.has(u)) notBack.push(u);
+        }
+        notBack.sort();
+
+        const noFollow = [];
+        for (const u of followersSet) {
+          if (!followingSet.has(u)) noFollow.push(u);
+        }
+        noFollow.sort();
+
+        const followersArr = [...followersSet].sort();
+        const followingArr = [...followingSet].sort();
+
+        els.statFollowers.textContent = followersSet.size;
+        els.statFollowing.textContent = followingSet.size;
+        els.statMutual.textContent = mutual.size;
+        els.statNotBack.textContent = notBack.length;
+        els.statNoFollow.textContent = noFollow.length;
+
+        window.__lists = {
+          "not-back": notBack,
+          "no-follow": noFollow,
+          mutual: [...mutual].sort(),
+          followers: followersArr,
+          following: followingArr,
+        };
+
+        els.results.classList.add("visible");
+        renderList();
+      }
+
+      function currentUsernames() {
+        const lists = window.__lists;
+        if (!lists) return [];
+        return lists[activeTab] || [];
+      }
+
+      function filteredUsernames() {
+        const q = normalize(els.filter.value);
+        let arr = currentUsernames();
+        if (q) arr = arr.filter((u) => u.includes(q));
+        return arr;
+      }
+
+      function renderList() {
+        const arr = filteredUsernames();
+        els.list.innerHTML = "";
+        if (arr.length === 0) {
+          const hint = document.createElement("div");
+          hint.className = "empty-hint";
+          hint.textContent =
+            currentUsernames().length === 0
+              ? "No accounts in this category."
+              : "No matches for your filter.";
+          els.list.appendChild(hint);
+          return;
+        }
+        for (const u of arr) {
+          const row = document.createElement("div");
+          row.className = "list-item";
+          row.setAttribute("role", "listitem");
+          const link = document.createElement("a");
+          link.href = "https://www.instagram.com/" + encodeURIComponent(u) + "/";
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "@" + u;
+          row.appendChild(link);
+          els.list.appendChild(row);
+        }
+      }
+
+      async function handleFile(kind, file) {
+        if (!file) return;
+        try {
+          const text = await readFile(file);
+          const set = extractUsernames(text);
+          if (set.size === 0) {
+            throw new Error(
+              "No usernames found. Check that you picked the correct JSON from the Instagram export (followers_*.json or following.json)."
+            );
+          }
+          if (kind === "followers") {
+            followersSet = new Set([...followersSet, ...set]);
+            const count = followersSet.size;
+            setStatus(els.followersStatus, count + " usernames (" + file.name + ")", true);
+          } else {
+            followingSet = set;
+            setStatus(els.followingStatus, file.name, true);
+          }
+          recompute();
+        } catch (e) {
+          els.parseError.textContent = e.message || String(e);
+          els.parseError.classList.add("show");
+        }
+      }
+
+      document.querySelectorAll(".drop-zone").forEach((zone) => {
+        const input = zone.querySelector("input");
+        const kind = zone.dataset.kind;
+
+        zone.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          zone.classList.add("dragover");
+        });
+        zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+        zone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          zone.classList.remove("dragover");
+          const f = e.dataTransfer.files[0];
+          if (f) handleFile(kind, f);
+        });
+        input.addEventListener("change", () => {
+          const f = input.files[0];
+          if (f) handleFile(kind, f);
+        });
+      });
+
+      document.querySelectorAll(".tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeTab = btn.dataset.tab;
+          document.querySelectorAll(".tab").forEach((b) => {
+            b.classList.toggle("active", b === btn);
+            b.setAttribute("aria-selected", b === btn ? "true" : "false");
+          });
+          renderList();
+        });
+      });
+
+      els.filter.addEventListener("input", renderList);
+
+      els.copyList.addEventListener("click", async () => {
+        const lines = filteredUsernames().map((u) => "@" + u);
+        try {
+          await navigator.clipboard.writeText(lines.join("\n"));
+        } catch (_) {
+          prompt("Copy:", lines.join("\n"));
+        }
+      });
+
+      els.copyOpen.addEventListener("click", async () => {
+        const lines = filteredUsernames().map((u) => "@" + u);
+        try {
+          await navigator.clipboard.writeText(lines.join(" "));
+        } catch (_) {
+          prompt("Copy:", lines.join(" "));
+        }
+      });
+
+      els.resetData.addEventListener("click", () => {
+        followersSet = new Set();
+        followingSet = new Set();
+        setStatus(els.followersStatus, "No file", false);
+        setStatus(els.followingStatus, "No file", false);
+        document.querySelectorAll('.drop-zone input[type="file"]').forEach((inp) => {
+          inp.value = "";
+        });
+        els.parseError.classList.remove("show");
+        els.results.classList.remove("visible");
+        els.filter.value = "";
+        window.__lists = null;
+      });
+    })();
+  </script>
 </body>
 </html>
